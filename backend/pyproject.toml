@@ -36,6 +36,9 @@ select = ["E", "F", "I", "UP", "B"]
 
 [tool.ruff.lint.per-file-ignores]
 "src/ffs/cli.py" = ["B008", "E501"]
+"src/ffs/importers/ul_design.py" = ["E501"]
+"tests/test_ul_design.py" = ["E501"]
+"tests/test_lacie_inventory.py" = ["E501"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

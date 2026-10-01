@@ -68,6 +68,12 @@ against the manufacturer's website before any value enters a reference table.
 | 2021 IBC significant changes, §704.6.1 secondary steel overspray | code commentary |
 | NFCA GI 1002, primed or painted steel | industry guidance (National Fireproofing Contractors Association) |
 
+All three UL designs are Product iQ printouts dated 4/24/2019 (X829 last updated 2018-05-03,
+S801 2018-05-08, P922 2019-02-11). They parse completely with `ffs import-ul-design`: X829 yields
+two thickness equations with W/D ranges and two 7-row size tables (contour, and flange tips
+reduced); S801 one rating table; P922 six rating tables across items 3, 7, 7D, 7E plus the
+manufacturer Type lists. Because they are 2019 snapshots, the user will pull current copies.
+
 ## Steel shape tables (15 PDFs)
 Wide-flange beams, wide-flange columns, WT columns, single angles, double angles (equal, unequal
 SLBB), miscellaneous channels, HSS and pipes, pipes, rectangular and square tube, solid round

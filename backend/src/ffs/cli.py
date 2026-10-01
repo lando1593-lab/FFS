@@ -191,6 +191,43 @@ def import_spray_report(
     typer.echo(f"outputs in {out}/")
 
 
+@app.command("import-ul-design")
+def import_ul_design(
+    pdfs: list[Path],
+    out: Path = typer.Option(Path("out_ul"), help="output directory for UL_<design>.json"),
+) -> None:
+    """Parse UL Product iQ design printouts (BXUV) into structured, versioned design records."""
+    from ffs.importers.ul_design import parse_design_pdf, write_record
+
+    for pdf in pdfs:
+        rec = parse_design_pdf(pdf)
+        p = write_record(rec, out)
+        typer.echo(
+            f"{rec.design_no}  {rec.member_category_guess}  design date={rec.design_date}  "
+            f"last updated={rec.last_updated}  snapshot={rec.snapshot_date}"
+        )
+        for r in rec.ratings:
+            typer.echo(
+                f"   rating: {r.kind} — {r.hours_as_printed}" + (f" ({r.see})" if r.see else "")
+            )
+        for e in rec.equations:
+            typer.echo(
+                f"   equation item {e.item_no}: h = R / ({e.a}*(W/D) + {e.b})  W/D {e.wd_range}  h {e.h_range_in}"
+            )
+        for t in rec.tables:
+            typer.echo(
+                f"   table item {t.item_no} [{t.kind}] cols={t.rating_columns or t.value_columns} rows={len(t.rows)}"
+                + (f"  condition: {t.condition[:60]}" if t.condition else "")
+            )
+            for row in t.rows[:3]:
+                typer.echo(f"      {row.cells}")
+        for mf in rec.sfrm_manufacturers:
+            typer.echo(f"   SFRM mfr (item {mf.item_no}): {mf.name} — {mf.text[:70]}")
+        if rec.unparsed:
+            typer.secho(f"   {len(rec.unparsed)} unparsed lines kept in record", fg="yellow")
+        typer.echo(f"   → {p}")
+
+
 @app.command()
 def synth(out_dir: Path = Path("golden/synthetic/gp0_simple_bay")) -> None:
     """Generate the synthetic golden sheet + truth.json."""

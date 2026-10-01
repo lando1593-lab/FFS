@@ -31,13 +31,17 @@ def _pdf(path: Path, text: str, encrypt: bool = False) -> None:
 def lib(tmp_path):
     root = tmp_path / "lib"
     (root / "Projects" / "2014 Job").mkdir(parents=True)
-    _pdf(root / "Projects" / "2014 Job" / "spray chart.pdf",
-         "ISOLATEK CAFCO 300 SPRAY CHART 2 HR UL DESIGN N708 W12X26 Design No. X772 Project: Mercy Hospital 3/14/2014")
+    _pdf(
+        root / "Projects" / "2014 Job" / "spray chart.pdf",
+        "ISOLATEK CAFCO 300 SPRAY CHART 2 HR UL DESIGN N708 W12X26 Design No. X772 Project: Mercy Hospital 3/14/2014",
+    )
     _pdf(root / "encrypted.pdf", "secret", encrypt=True)
     (root / "zero.pdf").write_bytes(b"")
     (root / "corrupt.pdf").write_bytes(b"%PDF-1.4 garbage")
     (root / "old.xls").write_bytes(b"\xd0\xcf\x11\xe0" + b"\0" * 100)
-    (root / "notes.txt").write_text("Carboline Pyrocrete 241 - 1-1/2 hr rating, see S-201 and ASTM E119, 2000 psi\n")
+    (root / "notes.txt").write_text(
+        "Carboline Pyrocrete 241 - 1-1/2 hr rating, see S-201 and ASTM E119, 2000 psi\n"
+    )
     os.symlink(root, root / "Projects" / "loop")
     return root
 
@@ -59,12 +63,16 @@ def test_walk_records_errors_and_continues(lib, tmp_path):
     assert rows["zero.pdf"].error == "zero-byte file"
     assert rows["corrupt.pdf"].error
     assert "legacy" in rows["old.xls"].error
-    assert any("not followed" in (e.error or "") for e in cat.entries)  # symlink loop recorded, not walked
+    assert any(
+        "not followed" in (e.error or "") for e in cat.entries
+    )  # symlink loop recorded, not walked
     assert len([e for e in cat.entries if e.file_class != "directory"]) == 6
     # streaming jsonl has every row
     lines = (tmp_path / "out" / "catalog.jsonl").read_text(encoding="utf-8").splitlines()
     assert len(lines) == len(cat.entries)
-    assert (tmp_path / "out" / "summary.md").exists() and (tmp_path / "out" / "summary_paths.md").exists()
+    assert (tmp_path / "out" / "summary.md").exists() and (
+        tmp_path / "out" / "summary_paths.md"
+    ).exists()
     # csv has a BOM for Excel
     assert (tmp_path / "out" / "catalog.csv").read_bytes().startswith(b"\xef\xbb\xbf")
     summary = (tmp_path / "out" / "summary.md").read_text(encoding="utf-8")
@@ -134,11 +142,17 @@ def test_guard_refuses_out_inside_or_same_volume(lib, tmp_path, monkeypatch, cap
     monkeypatch.setattr(sys, "argv", ["inventory.py", str(lib), "--out", str(lib / "out")])
     assert inv.main() == 2
     assert "inside the library root" in capsys.readouterr().err
-    monkeypatch.setattr(sys, "argv", ["inventory.py", str(lib), "--out", str(tmp_path / "elsewhere")])
+    monkeypatch.setattr(
+        sys, "argv", ["inventory.py", str(lib), "--out", str(tmp_path / "elsewhere")]
+    )
     rc = inv.main()  # same volume as tmp root → refused unless allowed
     assert rc == 2
     assert "same volume" in capsys.readouterr().err
-    monkeypatch.setattr(sys, "argv", ["inventory.py", str(lib), "--out", str(tmp_path / "elsewhere"), "--allow-same-volume"])
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["inventory.py", str(lib), "--out", str(tmp_path / "elsewhere"), "--allow-same-volume"],
+    )
     assert inv.main() == 0
     assert (tmp_path / "elsewhere" / "summary.md").exists()
 
@@ -153,7 +167,9 @@ def test_undecodable_filename_survives(tmp_path):
         f.write(b"hello")
     cat = _run(root, tmp_path / "out")
     inv.write_outputs(cat)
-    rows = json.loads((tmp_path / "out" / "catalog.jsonl").read_text(encoding="utf-8").splitlines()[0])
+    rows = json.loads(
+        (tmp_path / "out" / "catalog.jsonl").read_text(encoding="utf-8").splitlines()[0]
+    )
     assert rows["filename"].startswith("caf")
 
 
