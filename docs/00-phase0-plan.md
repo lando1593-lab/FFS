@@ -20,6 +20,8 @@ every later milestone depends on, the LaCie inventory tool, and a first vertical
 | 9 | Golden project framework + metrics | Framework done; synthetic golden #0 generated; real goldens need your drawings | `docs/06-golden-projects.md`, `golden/` |
 | 10 | First vertical slice (code) | Runs end-to-end on synthetic golden #0: recall 1.0, precision 1.0, 0 duplicates, length error 0.0%; 52 tests pass | `backend/` |
 | 11 | Open domain questions for you | Done | `docs/07-open-domain-questions.md` |
+| 12 | EDGE spray-report importer (historical takeoffs → structured data) | Done; verified on the user's sample report (3 sheets, 18 items) | `backend/src/ffs/importers/edge_spray_report.py`, `docs/research/C-edge-spray-report-anatomy.md` |
+| 13 | One-command local LaCie inventory bootstrap | Done (macOS/Linux `run.sh`, Windows `run.ps1`); tool under adversarial review | `tools/lacie_inventory/` |
 
 ## Environment (this session)
 - Cloud Linux container, Python 3.11, `uv`, Node 22, Postgres client. PyMuPDF and Shapely install cleanly.

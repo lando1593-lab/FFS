@@ -2,6 +2,22 @@
 
 Runs on the machine the LaCie drive is plugged into. It never writes inside the drive.
 
+## Fastest path (no Python knowledge needed)
+macOS / Linux, in a terminal at the repo root:
+```
+bash tools/lacie_inventory/run.sh                 # finds a volume named LaCie automatically
+bash tools/lacie_inventory/run.sh "/Volumes/LaCie" # or give the path
+```
+Windows PowerShell, at the repo root:
+```
+powershell -ExecutionPolicy Bypass -File tools\lacie_inventory\run.ps1
+powershell -ExecutionPolicy Bypass -File tools\lacie_inventory\run.ps1 -Root "E:\"
+```
+Both install `uv` if missing, set up the environment, run the inventory, and write to
+`data/lacie_catalog/`. Then commit or send `data/lacie_catalog/summary.md`.
+
+## Manual path
+
 ```
 cd backend && uv sync --extra dev --extra inventory
 uv run python ../tools/lacie_inventory/inventory.py --find           # find the mount

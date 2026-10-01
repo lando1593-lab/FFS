@@ -156,6 +156,41 @@ def explain(members_json: Path, member_id: str) -> None:
         typer.echo("notes: " + " | ".join(m["notes"]))
 
 
+@app.command("import-spray-report")
+def import_spray_report(
+    pdf: Path,
+    out: Path = typer.Option(Path("out_spray"), help="output directory"),
+    plans: bool = typer.Option(True, help="also stitch the coloured plan rasters to PNG"),
+) -> None:
+    """Import an EDGE 'Spray Report' PDF into structured JSON/CSV (historical takeoff data)."""
+    from ffs.importers.edge_spray_report import (
+        extract_plan_images,
+        parse_spray_report,
+        write_outputs,
+    )
+
+    rep = parse_spray_report(pdf)
+    write_outputs(rep, out)
+    for sh in rep.sheets:
+        typer.echo(
+            f"{sh.sheet_no}  {sh.title}  level≈{sh.level_guess}  product={sh.product_code}  "
+            f"designs={[d['as_printed'] for d in sh.designs]}  items={len(sh.items)}  plan_page={sh.plan_page}"
+        )
+        for it in sh.items:
+            sw = f"{it.swatch.rgb_hex} {it.swatch.pattern}" if it.swatch else "no swatch"
+            flag = "" if it.thickness_consistent in (True, None) else "  !! inconsistent"
+            typer.echo(
+                f"   {it.section:<6} {it.member_label:<22} {it.canonical_section or '-':<14} "
+                f"{(it.role or '-'):<7} {it.sides or '-'} side  {it.thickness_display:<10} [{sw}]{flag}"
+            )
+        for n in sh.qa_notes:
+            typer.secho(f"   QA: {n}", fg="yellow")
+    if plans:
+        for p in extract_plan_images(pdf, out):
+            typer.echo(f"plan image: {p}")
+    typer.echo(f"outputs in {out}/")
+
+
 @app.command()
 def synth(out_dir: Path = Path("golden/synthetic/gp0_simple_bay")) -> None:
     """Generate the synthetic golden sheet + truth.json."""
