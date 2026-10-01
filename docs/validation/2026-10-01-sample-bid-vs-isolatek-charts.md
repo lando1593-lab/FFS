@@ -49,3 +49,12 @@ per UL guidelines). S721 chart, unrestrained beam, 1 hour:
 - Chart dates are 2013; UL design dates 2019. Currency of both against today's Isolatek site
   and Product iQ is still to be checked (the fetch manifest records what was fetched and when).
 - Only 1-hour values were exercised. The charts carry 1-1/2, 2, 3 and 4 hour columns.
+
+## Reproduced by the engine (2026-10-01, later the same day)
+`ffs check-bid <spray_report.json>` and `tests/test_thickness_engine.py::test_real_library_reproduces_validation_one`
+now produce this table from the parsed library: 13 of 13 beams resolved through P723 → S721
+(protected roof deck, unrestrained, CAFCO 400 chart line), the HSS column as a `conflict` with
+both routes returned (chart row 7/16 in; equation 9/16 in with A/P 0.35 cited from the chart
+row, R = 60 min, raw 0.5415 in rounded up to 1/16), and the angles as `review` with the
+single-angle (15/16) and double-angle (13/16) shapes charts, neither tied to P723. See
+`docs/09-design-layer.md`.

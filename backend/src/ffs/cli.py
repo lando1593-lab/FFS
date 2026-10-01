@@ -462,3 +462,60 @@ def import_manual(
     typer.echo(f"{len(results)} filed: {dict(Counter(r.status for r in results))}")
     for name in unmatched:
         typer.secho(f"  ! not filed (no registry entry with this file name): {name}", fg="yellow")
+
+
+@app.command()
+def thickness(
+    design: str = typer.Option(..., help="design number, e.g. P723"),
+    member: str = typer.Option(..., help="canonical designation, e.g. W12X26 or HSS5X5X3/8"),
+    rating: float = typer.Option(..., help="hourly rating, e.g. 1 or 1.5"),
+    restraint: str = typer.Option(None, help="restrained / unrestrained"),
+    product: str = typer.Option(None, help="product line printed on the chart, e.g. 'CAFCO 400'"),
+    application: str = typer.Option("contour", help="contour or half_flange_tip"),
+    condition: str = typer.Option(None, help="assembly condition / column group text to require"),
+    parsed: Path = typer.Option(Path("../data/reference_library/parsed"), help="parsed root"),
+) -> None:
+    """Resolve a thickness from the design library and show every source that applies."""
+    from ffs.design.library import DesignLibrary
+    from ffs.design.thickness import ThicknessQuery, resolve
+
+    lib = DesignLibrary.load(parsed)
+    res = resolve(
+        lib,
+        ThicknessQuery(
+            design, member, rating, restraint, product, application=application, condition=condition
+        ),
+    )
+    typer.echo(f"{design} {member} {rating} h → {res.status.upper()}: {res.value}")
+    for c in res.candidates:
+        src = {k: v for k, v in c.source.items() if v not in (None, [], "")}
+        typer.echo(
+            f"  [{c.assertion_kind} {c.method} authority {c.authority}] {c.as_printed or ''} = {c.thickness_in} in"
+        )
+        typer.echo(f"      {src}")
+        if c.inputs and c.method == "ul_equation":
+            typer.echo(f"      inputs {c.inputs}")
+        for n in c.notes:
+            typer.echo(f"      note: {n}")
+    for r in res.reasons:
+        typer.secho(f"  - {r}", fg="yellow")
+
+
+@app.command()
+def check_bid(
+    report: Path = typer.Argument(..., help="spray_report.json from import-spray-report"),
+    parsed: Path = typer.Option(Path("../data/reference_library/parsed"), help="parsed root"),
+) -> None:
+    """Compare every thickness in an EDGE spray report with the design library (never corrects)."""
+    from ffs.design.bid_check import check_report_file, summarize
+    from ffs.design.library import DesignLibrary
+
+    lib = DesignLibrary.load(parsed)
+    rows = check_report_file(lib, report)
+    typer.echo("sheet | member | role | design | h | bid | engine | status | verdict")
+    for r in rows:
+        eng = r.engine_in if r.engine_in is not None else (r.distinct or "")
+        typer.echo(
+            f"{r.sheet_no} | {r.member} | {r.role} | {r.design} | {r.rating_hours} | {r.bid_in} | {eng} | {r.status} | {r.verdict}"
+        )
+    typer.echo(f"summary: {summarize(rows)}")

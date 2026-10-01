@@ -29,6 +29,7 @@ every later milestone depends on, the LaCie inventory tool, and a first vertical
 | 19 | GCP MONOKOTE chart parser (positional, two-group; derived HSS canonicals) | Done; 86 charts, 49,140 rows, 31 designs | `backend/src/ffs/importers/gcp_chart.py` |
 | 20 | Human-assisted import (`manual-list`, `import-manual`) and per-manufacturer coverage report (`reference-coverage`) | Done | `backend/src/ffs/sources/manual.py`, `backend/src/ffs/importers/coverage.py`, `docs/downloads/` |
 | 21 | Parser extensions from the real library: intumescent decimal tables and `T=k/(W/D)` equations, A/P pipe-tube tables, joist and AISC/metric chart layouts, generic 300-series charts | Done; 302 Isolatek charts with rows (0 without), 69,535 rows; 150 of 218 UL printouts (incl. the current-site 2025 layout) with tables or equations; 118,675 chart rows | `backend/src/ffs/importers/` |
+| 22 | Design layer: thickness resolution engine over the parsed library (UL tables, UL equations, manufacturer charts; cross-references; restraint/product/application/condition filters; conflict and review statuses) + `ffs check-bid` | Done; reproduces validation 1 (13/13 beams, HSS conflict, angles review) | `backend/src/ffs/design/`, `docs/09-design-layer.md` |
 | 13 | One-command local LaCie inventory bootstrap | Done (macOS/Linux `run.sh`, Windows `run.ps1`); tool under adversarial review | `tools/lacie_inventory/` |
 
 ## Environment (this session)
