@@ -364,10 +364,10 @@ def import_reference(
     typer.echo(f"{len(results)} documents routed: {dict(by)}")
     typer.echo(
         f"  UL designs with tables/equations: {sum(1 for r in results if r.kind == 'ul_design' and (r.tables or r.equations))}"
-        f" of {by.get('ul_design', 0)}; chart rows: {sum(r.rows for r in results if r.kind == 'isolatek_chart')}"
+        f" of {by.get('ul_design', 0)}; chart rows: {sum(r.rows for r in results if r.kind in ('isolatek_chart', 'gcp_chart'))}"
     )
     for r in results:
-        if r.kind == "error" or (r.kind == "isolatek_chart" and r.rows == 0):
+        if r.kind == "error" or (r.kind in ("isolatek_chart", "gcp_chart") and r.rows == 0):
             typer.secho(f"  ! {r.kind} {r.path.split('/')[-1]} {r.error or 'no rows'}", fg="yellow")
     typer.echo(f"report: {out / 'route_report.jsonl'}")
 

@@ -83,7 +83,7 @@ def build_coverage(library: str | Path, parsed: str | Path) -> dict[str, Manufac
                 with_tables[m].add(design)
             else:
                 without_tables[m].add(design)
-        elif kind == "isolatek_chart":
+        elif kind in ("isolatek_chart", "gcp_chart"):
             rows = int(res.get("rows") or 0)
             cov.chart_rows += rows
             if rows == 0:

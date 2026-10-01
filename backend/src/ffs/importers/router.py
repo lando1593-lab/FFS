@@ -15,7 +15,7 @@ from pathlib import Path
 @dataclass
 class RouteResult:
     path: str
-    kind: str  # ul_design / isolatek_chart / chart_xref / design_text / scanned / error
+    kind: str  # ul_design / isolatek_chart / gcp_chart / chart_xref / design_text / scanned / error
     design: str | None
     rows: int
     tables: int
@@ -36,6 +36,12 @@ def sniff(path: str | Path) -> tuple[str, str]:
         doc.close()
     if not first.strip():
         return "scanned", first
+    if (
+        re.search(r"GCP\s+APPLIED\s+TECHNOLOGIES", first, re.IGNORECASE)
+        and re.search(r"\b\d(?:\.\d)?\s*hr\b", first, re.IGNORECASE)
+        and "UL Product iQ" not in first
+    ):
+        return "gcp_chart", all_text
     if re.search(r"UL Product iQ|BXUV\.[A-Z]{1,3}-?\d{3,4}|Design No\.\s*[A-Z]", first):
         from ffs.importers.ul_design import find_design_no
 
@@ -80,6 +86,22 @@ def route_file(path: str | Path, out_dir: str | Path) -> RouteResult:
                 len(rec.tables),
                 len(rec.equations),
                 len(rec.unparsed),
+                str(p),
+            )
+        if kind == "gcp_chart":
+            from ffs.importers.gcp_chart import parse_gcp_chart_pdf, write_gcp_chart
+
+            grec = parse_gcp_chart_pdf(path)
+            grec.source_file = path.parent.name + "__" + path.name
+            p = write_gcp_chart(grec, out_dir / "gcp_charts")
+            return RouteResult(
+                str(path),
+                kind,
+                grec.design,
+                len(grec.rows),
+                len(grec.groups) if grec.rows else 0,
+                0,
+                len(grec.notes),
                 str(p),
             )
         if kind in ("isolatek_chart", "chart_xref"):
