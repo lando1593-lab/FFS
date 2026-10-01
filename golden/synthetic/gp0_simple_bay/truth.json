@@ -1,0 +1,418 @@
+{
+ "project": "gp0_simple_bay",
+ "sheets": [
+  {
+   "file": "sheet.pdf",
+   "page": 1,
+   "sheet_no": "S-202",
+   "level": "LEVEL 02",
+   "scale": "1/8\" = 1'-0\""
+  }
+ ],
+ "members": [
+  {
+   "level": "LEVEL 02",
+   "section": "W24X76",
+   "type": "beam",
+   "start_grid": "A/1",
+   "end_grid": "A/2",
+   "length_in": 360.0,
+   "status": "new",
+   "note": ""
+  },
+  {
+   "level": "LEVEL 02",
+   "section": "W24X76",
+   "type": "beam",
+   "start_grid": "A/2",
+   "end_grid": "A/3",
+   "length_in": 360.0,
+   "status": "new",
+   "note": ""
+  },
+  {
+   "level": "LEVEL 02",
+   "section": "W24X76",
+   "type": "beam",
+   "start_grid": "A/3",
+   "end_grid": "A/4",
+   "length_in": 360.0,
+   "status": "new",
+   "note": ""
+  },
+  {
+   "level": "LEVEL 02",
+   "section": "W24X76",
+   "type": "beam",
+   "start_grid": "A/4",
+   "end_grid": "A/5",
+   "length_in": 360.0,
+   "status": "new",
+   "note": ""
+  },
+  {
+   "level": "LEVEL 02",
+   "section": "W24X76",
+   "type": "beam",
+   "start_grid": "B/1",
+   "end_grid": "B/2",
+   "length_in": 360.0,
+   "status": "new",
+   "note": ""
+  },
+  {
+   "level": "LEVEL 02",
+   "section": "W24X76",
+   "type": "beam",
+   "start_grid": "B/2",
+   "end_grid": "B/3",
+   "length_in": 360.0,
+   "status": "new",
+   "note": ""
+  },
+  {
+   "level": "LEVEL 02",
+   "section": "W24X76",
+   "type": "beam",
+   "start_grid": "B/3",
+   "end_grid": "B/4",
+   "length_in": 360.0,
+   "status": "new",
+   "note": ""
+  },
+  {
+   "level": "LEVEL 02",
+   "section": "W24X76",
+   "type": "beam",
+   "start_grid": "B/4",
+   "end_grid": "B/5",
+   "length_in": 360.0,
+   "status": "new",
+   "note": ""
+  },
+  {
+   "level": "LEVEL 02",
+   "section": "W24X76",
+   "type": "beam",
+   "start_grid": "C/1",
+   "end_grid": "C/2",
+   "length_in": 360.0,
+   "status": "new",
+   "note": ""
+  },
+  {
+   "level": "LEVEL 02",
+   "section": "W24X76",
+   "type": "beam",
+   "start_grid": "C/2",
+   "end_grid": "C/3",
+   "length_in": 360.0,
+   "status": "new",
+   "note": ""
+  },
+  {
+   "level": "LEVEL 02",
+   "section": "W24X76",
+   "type": "beam",
+   "start_grid": "C/3",
+   "end_grid": "C/4",
+   "length_in": 360.0,
+   "status": "new",
+   "note": ""
+  },
+  {
+   "level": "LEVEL 02",
+   "section": "W24X76",
+   "type": "beam",
+   "start_grid": "C/4",
+   "end_grid": "C/5",
+   "length_in": 360.0,
+   "status": "new",
+   "note": ""
+  },
+  {
+   "level": "LEVEL 02",
+   "section": "W24X76",
+   "type": "beam",
+   "start_grid": "D/1",
+   "end_grid": "D/2",
+   "length_in": 360.0,
+   "status": "new",
+   "note": ""
+  },
+  {
+   "level": "LEVEL 02",
+   "section": "W24X76",
+   "type": "beam",
+   "start_grid": "D/2",
+   "end_grid": "D/3",
+   "length_in": 360.0,
+   "status": "new",
+   "note": ""
+  },
+  {
+   "level": "LEVEL 02",
+   "section": "W24X76",
+   "type": "beam",
+   "start_grid": "D/3",
+   "end_grid": "D/4",
+   "length_in": 360.0,
+   "status": "new",
+   "note": ""
+  },
+  {
+   "level": "LEVEL 02",
+   "section": "W24X76",
+   "type": "beam",
+   "start_grid": "D/4",
+   "end_grid": "D/5",
+   "length_in": 360.0,
+   "status": "new",
+   "note": ""
+  },
+  {
+   "level": "LEVEL 02",
+   "section": "W18X35",
+   "type": "beam",
+   "start_grid": null,
+   "end_grid": null,
+   "length_in": 360.0,
+   "status": "new",
+   "note": "infill 1 in bay A-B/1-2"
+  },
+  {
+   "level": "LEVEL 02",
+   "section": "W16X26",
+   "type": "beam",
+   "start_grid": null,
+   "end_grid": null,
+   "length_in": 360.0,
+   "status": "new",
+   "note": "infill 2 in bay A-B/1-2"
+  },
+  {
+   "level": "LEVEL 02",
+   "section": "W18X40",
+   "type": "beam",
+   "start_grid": null,
+   "end_grid": null,
+   "length_in": 360.0,
+   "status": "new",
+   "note": "infill 1 in bay B-C/1-2"
+  },
+  {
+   "level": "LEVEL 02",
+   "section": "W18X35",
+   "type": "beam",
+   "start_grid": null,
+   "end_grid": null,
+   "length_in": 360.0,
+   "status": "new",
+   "note": "infill 2 in bay B-C/1-2"
+  },
+  {
+   "level": "LEVEL 02",
+   "section": "W16X26",
+   "type": "beam",
+   "start_grid": null,
+   "end_grid": null,
+   "length_in": 360.0,
+   "status": "new",
+   "note": "infill 1 in bay C-D/1-2"
+  },
+  {
+   "level": "LEVEL 02",
+   "section": "W18X40",
+   "type": "beam",
+   "start_grid": null,
+   "end_grid": null,
+   "length_in": 360.0,
+   "status": "new",
+   "note": "infill 2 in bay C-D/1-2"
+  },
+  {
+   "level": "LEVEL 02",
+   "section": "W18X35",
+   "type": "beam",
+   "start_grid": null,
+   "end_grid": null,
+   "length_in": 360.0,
+   "status": "new",
+   "note": "infill 1 in bay A-B/2-3"
+  },
+  {
+   "level": "LEVEL 02",
+   "section": "W16X26",
+   "type": "beam",
+   "start_grid": null,
+   "end_grid": null,
+   "length_in": 360.0,
+   "status": "new",
+   "note": "infill 2 in bay A-B/2-3"
+  },
+  {
+   "level": "LEVEL 02",
+   "section": "W18X40",
+   "type": "beam",
+   "start_grid": null,
+   "end_grid": null,
+   "length_in": 360.0,
+   "status": "new",
+   "note": "infill 1 in bay B-C/2-3"
+  },
+  {
+   "level": "LEVEL 02",
+   "section": "W18X35",
+   "type": "beam",
+   "start_grid": null,
+   "end_grid": null,
+   "length_in": 360.0,
+   "status": "new",
+   "note": "infill 2 in bay B-C/2-3"
+  },
+  {
+   "level": "LEVEL 02",
+   "section": "W16X26",
+   "type": "beam",
+   "start_grid": null,
+   "end_grid": null,
+   "length_in": 360.0,
+   "status": "new",
+   "note": "infill 1 in bay C-D/2-3"
+  },
+  {
+   "level": "LEVEL 02",
+   "section": "W18X40",
+   "type": "beam",
+   "start_grid": null,
+   "end_grid": null,
+   "length_in": 360.0,
+   "status": "new",
+   "note": "infill 2 in bay C-D/2-3"
+  },
+  {
+   "level": "LEVEL 02",
+   "section": "W18X35",
+   "type": "beam",
+   "start_grid": null,
+   "end_grid": null,
+   "length_in": 360.0,
+   "status": "new",
+   "note": "infill 1 in bay A-B/3-4"
+  },
+  {
+   "level": "LEVEL 02",
+   "section": "W16X26",
+   "type": "beam",
+   "start_grid": null,
+   "end_grid": null,
+   "length_in": 360.0,
+   "status": "new",
+   "note": "infill 2 in bay A-B/3-4"
+  },
+  {
+   "level": "LEVEL 02",
+   "section": "W18X40",
+   "type": "beam",
+   "start_grid": null,
+   "end_grid": null,
+   "length_in": 360.0,
+   "status": "new",
+   "note": "infill 1 in bay B-C/3-4"
+  },
+  {
+   "level": "LEVEL 02",
+   "section": "W18X35",
+   "type": "beam",
+   "start_grid": null,
+   "end_grid": null,
+   "length_in": 360.0,
+   "status": "new",
+   "note": "infill 2 in bay B-C/3-4"
+  },
+  {
+   "level": "LEVEL 02",
+   "section": "W16X26",
+   "type": "beam",
+   "start_grid": null,
+   "end_grid": null,
+   "length_in": 360.0,
+   "status": "new",
+   "note": "infill 1 in bay C-D/3-4"
+  },
+  {
+   "level": "LEVEL 02",
+   "section": "W18X40",
+   "type": "beam",
+   "start_grid": null,
+   "end_grid": null,
+   "length_in": 360.0,
+   "status": "new",
+   "note": "infill 2 in bay C-D/3-4"
+  },
+  {
+   "level": "LEVEL 02",
+   "section": "W18X35",
+   "type": "beam",
+   "start_grid": null,
+   "end_grid": null,
+   "length_in": 360.0,
+   "status": "new",
+   "note": "infill 1 in bay A-B/4-5"
+  },
+  {
+   "level": "LEVEL 02",
+   "section": "W16X26",
+   "type": "beam",
+   "start_grid": null,
+   "end_grid": null,
+   "length_in": 360.0,
+   "status": "new",
+   "note": "infill 2 in bay A-B/4-5"
+  },
+  {
+   "level": "LEVEL 02",
+   "section": "W18X40",
+   "type": "beam",
+   "start_grid": null,
+   "end_grid": null,
+   "length_in": 360.0,
+   "status": "new",
+   "note": "infill 1 in bay B-C/4-5"
+  },
+  {
+   "level": "LEVEL 02",
+   "section": "W18X35",
+   "type": "beam",
+   "start_grid": null,
+   "end_grid": null,
+   "length_in": 360.0,
+   "status": "new",
+   "note": "infill 2 in bay B-C/4-5"
+  },
+  {
+   "level": "LEVEL 02",
+   "section": "W16X26",
+   "type": "beam",
+   "start_grid": null,
+   "end_grid": null,
+   "length_in": 360.0,
+   "status": "new",
+   "note": "infill 1 in bay C-D/4-5"
+  },
+  {
+   "level": "LEVEL 02",
+   "section": "W18X40",
+   "type": "beam",
+   "start_grid": null,
+   "end_grid": null,
+   "length_in": 360.0,
+   "status": "new",
+   "note": "infill 2 in bay C-D/4-5"
+  }
+ ],
+ "distractors": {
+  "schedule_entries": 4,
+  "note_designations": 1
+ }
+}
