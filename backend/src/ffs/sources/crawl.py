@@ -13,6 +13,7 @@ on the allowlist.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import time
@@ -216,9 +217,10 @@ def merge_into_registry(rep: CrawlReport, registry: dict) -> int:
         slug = re.sub(r"[^a-z0-9]+", "-", (Path(urlparse(d.url).path).stem or "doc").lower()).strip(
             "-"
         )[:60]
+        short = hashlib.sha1(d.url.encode("utf-8")).hexdigest()[:6]
         registry["sources"].append(
             {
-                "id": f"{(d.manufacturer_guess or 'web').lower()}-{slug}",
+                "id": f"{(d.manufacturer_guess or 'web').lower()}-{slug}-{short}",
                 "manufacturer": d.manufacturer_guess,
                 "product": None,
                 "kind": d.kind_guess or "unknown",

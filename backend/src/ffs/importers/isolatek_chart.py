@@ -1,16 +1,19 @@
 """Importer for Isolatek "Designs & Thicknesses" chart PDFs (isolatek.com/storage/designs_thickness/…).
 
 Layout (text-extractable, several pages): a header block with the design number, the deck /
-concrete condition, the products the chart covers and the chart date; then a table with
-columns ``ASTM Desig. | W/D | Metric Desig. | M/D | Hp/A | 1-Hour | 1-1/2 Hour | 2-Hour |
-3-Hour | 4-Hour`` (column sets vary: column charts use W/D only, tube charts A/P). Rows carry
-the depth family forward: ``W44 x 335`` is followed by ``290``, ``262`` … meaning W44 x 290,
-W44 x 262. Section markers such as ``Unrestrained Beam`` switch the restraint condition for the
-rows that follow.
+concrete / member condition, the products the chart covers and the chart date; then a table with
+columns such as ``ASTM Desig. | [Wall Thk] | W/D or A/P | Metric Desig. | M/D | Hp/A | 1-Hour |
+1-1/2 Hour | 2-Hour | 3-Hour | 4-Hour``. Rows carry the family forward:
 
-Every row records page, the family label it was derived from, W/D (and Hp/A, M/D when present),
-and the thickness per rating exactly as printed plus parsed inches. Values are manufacturer data
-(authority level 6) tied to a design; nothing is interpolated here.
+* W-shapes: ``W44 x 335`` then ``290``, ``262`` … → W44 x 290, W44 x 262
+* angles: ``L 8 x 8 x 1-1/8`` then ``x 1``, ``x 7/8`` … → L8 x 8 x 1, L8 x 8 x 7/8
+* tubes (charts with a Wall Thk column): ``30 x 30`` + wall ``5/8`` then ``1/2``, ``3/8`` …
+
+Section markers (``Unrestrained Beam``) switch the restraint condition for the rows that follow.
+Every row records page, the family it derives from, W/D or A/P, metric label, M/D, Hp/A, and the
+thickness per rating exactly as printed plus parsed inches. Values are manufacturer data
+(authority level 6) tied to a design; nothing is interpolated here. Cross-reference pages
+("Use Design S721 Table") are recorded as such.
 """
 
 from __future__ import annotations
@@ -34,21 +37,25 @@ _FAMILY = re.compile(
     r"^(?P<fam>W|HP|M|S|C|MC|WT|L|HSS|PIPE|ST|SP|RT|TS)\s*(?P<depth>\d+(?:\.\d+)?)\s*x\s*(?P<rest>.+)$",
     re.IGNORECASE,
 )
-_WEIGHT_ONLY = re.compile(r"^\d+(?:\.\d+)?$")
-_FRACTION = re.compile(r"^(?:\d+(?:-\d+/\d+)?|\d+/\d+|NR|N/R|—|-)$", re.IGNORECASE)
+_TUBE_FAMILY = re.compile(r"^(?P<a>\d+(?:\.\d+)?)\s*x\s*(?P<b>\d+(?:\.\d+)?)$")
+_NUMBER = re.compile(r"^\d+(?:\.\d+)?$")
+_FRAC_OR_DEC = re.compile(r"^(?:\d+/\d+|\d*\.\d+|\d+-\d+/\d+|\d+)$")
+_X_CONT = re.compile(r"^x\s*(?P<v>\d+(?:-\d+/\d+)?|\d+/\d+|\d*\.\d+)$", re.IGNORECASE)
+_THK = re.compile(r"^(?:\d+(?:-\d+/\d+)?|\d+/\d+|NR|N/R|—|-)$", re.IGNORECASE)
 _SECTION = re.compile(
     r"^(?P<s>(?:Un)?restrained\s+(?:Beam|Column|Assembly)s?|Columns?|Beams?|Joists?)\s*$",
     re.IGNORECASE,
 )
+_XREF = re.compile(r"Use Design\s+(?P<d>[A-Z]{1,2}-?\d{3,4}[a-z]?)", re.IGNORECASE)
 
 
 @dataclass
 class ChartRow:
     page: int
-    section: str | None  # restraint / member section marker in force
-    member_label: str  # reconstructed, e.g. "W44 x 290"
+    section: str | None
+    member_label: str
     canonical: str | None
-    family_label: str  # the family row this one derives from, e.g. "W44 x 335"
+    family_label: str
     wd: float | None
     metric_label: str | None
     md: float | None
@@ -68,19 +75,28 @@ class ChartRecord:
     chart_date: str | None
     rating_columns: list[str]
     rows: list[ChartRow]
+    factor_kind: str | None = None  # "W/D" or "A/P"
     notes: list[str] = field(default_factory=list)
     cross_reference: str | None = None
+    cross_reference_designs: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         return asdict(self)
 
 
 def _floatish(s: str) -> bool:
-    return bool(re.fullmatch(r"\d+(?:\.\d+)?", s.strip()))
+    return bool(_NUMBER.fullmatch(s.strip()))
 
 
 def _page_lines(page) -> list[str]:
     return [ln.strip() for ln in page.get_text("text").split("\n")]
+
+
+def _family_prefix(label: str) -> str:
+    """'W44 x 335' → 'W44'; 'L 8 x 8 x 1-1/8' → 'L8 x 8'; 'HSS 6 x 6 x 1/4' → 'HSS6 x 6'."""
+    parts = [p.strip() for p in re.split(r"\s*x\s*", label, flags=re.IGNORECASE)]
+    head = re.sub(r"^([A-Za-z]+)\s+", r"\1", parts[0])
+    return " x ".join([head] + parts[1:-1])
 
 
 def parse_chart_pdf(path: str | Path) -> ChartRecord:
@@ -105,16 +121,24 @@ def parse_chart_pdf(path: str | Path) -> ChartRecord:
             ln
             for ln in head
             if re.search(
-                r"deck|concrete|column|joist|beam|tube|pipe|flange|angle|channel", ln, re.IGNORECASE
+                r"deck|concrete|column|joist|beam|tube|pipe|flange|angle|channel|shape",
+                ln,
+                re.IGNORECASE,
             )
-            and not re.search(r"CAFCO|ISOLATEK", ln)
+            and not re.search(r"CAFCO|ISOLATEK|Use Design", ln)
         ]
         rec.condition = " ".join(cond[:3]) or None
         prods = [ln for ln in head if re.search(r"CAFCO|ISOLATEK", ln)]
         rec.products = " ".join(prods) or None
-        xref = [ln for ln in first if re.search(r"^For (Beams|Joists|Columns): Use Design", ln)]
+        xref = [ln for ln in first if _XREF.search(ln)]
         if xref:
             rec.cross_reference = " | ".join(xref)
+            rec.cross_reference_designs = sorted({_XREF.search(x).group("d").upper() for x in xref})
+        tube_prefix = (
+            "ST"
+            if re.search(r"square", rec.condition or "", re.IGNORECASE)
+            else ("RT" if re.search(r"rect", rec.condition or "", re.IGNORECASE) else "TS")
+        )
         for pi in range(len(doc)):
             lines = _page_lines(doc[pi])
             hdr_idx = [i for i, ln in enumerate(lines) if _RATING_HDR.match(ln)]
@@ -128,11 +152,15 @@ def parse_chart_pdf(path: str | Path) -> ChartRecord:
             has_metric = any(re.search(r"Metric", ln) for ln in pre)
             has_md = any(re.fullmatch(r"M/D", ln) for ln in pre)
             has_hpa = any(re.fullmatch(r"Hp/A", ln, re.IGNORECASE) for ln in pre)
-            has_wd = any(re.fullmatch(r"(W/D|A/P)", ln, re.IGNORECASE) for ln in pre)
+            wd_hdr = next((ln for ln in pre if re.fullmatch(r"(W/D|A/P)", ln, re.IGNORECASE)), None)
+            has_wd = wd_hdr is not None
+            if wd_hdr and not rec.factor_kind:
+                rec.factor_kind = wd_hdr.upper()
+            has_wall = any(re.fullmatch(r"Wall\s*Thk\.?", ln, re.IGNORECASE) for ln in pre)
             i = hdr_idx[-1] + 1
             section = None
             family: str | None = None
-            fam_prefix: str | None = None
+            prefix: str | None = None
             while i < len(lines):
                 ln = lines[i]
                 if not ln:
@@ -143,34 +171,55 @@ def parse_chart_pdf(path: str | Path) -> ChartRecord:
                     section = sm.group("s")
                     i += 1
                     continue
-                fm = _FAMILY.match(ln)
-                if fm:
-                    family = ln
-                    fam_prefix = f"{fm.group('fam').upper()}{fm.group('depth')} x "
-                    label = ln
+                j = i + 1
+                label = None
+                if has_wall and _TUBE_FAMILY.match(ln):
+                    tf = _TUBE_FAMILY.match(ln)
+                    family = f"{tube_prefix} {tf.group('a')} x {tf.group('b')}"
+                    prefix = family
+                    if j < len(lines) and _FRAC_OR_DEC.match(lines[j]) and not _floatish(lines[j]):
+                        label = f"{prefix} x {lines[j]}"
+                        j += 1
+                    else:
+                        label = f"{prefix} x ?"
                 elif (
-                    _WEIGHT_ONLY.match(ln)
-                    and fam_prefix
-                    and i + 1 < len(lines)
-                    and _floatish(lines[i + 1])
+                    has_wall
+                    and prefix
+                    and _FRAC_OR_DEC.match(ln)
+                    and not _floatish(ln)
+                    and j < len(lines)
+                    and _floatish(lines[j])
                 ):
-                    label = fam_prefix + ln
+                    label = f"{prefix} x {ln}"
+                elif _FAMILY.match(ln):
+                    family = ln
+                    prefix = _family_prefix(ln)
+                    label = re.sub(r"^([A-Za-z]+)\s+", r"\1", ln)
+                elif _X_CONT.match(ln) and prefix:
+                    label = f"{prefix} x {_X_CONT.match(ln).group('v')}"
+                elif (
+                    _NUMBER.match(ln)
+                    and prefix
+                    and not has_wall
+                    and j < len(lines)
+                    and _floatish(lines[j])
+                ):
+                    label = f"{prefix} x {ln}"
                 else:
                     i += 1
                     continue
-                j = i + 1
                 wd = md = hpa = None
                 metric = None
                 if has_wd and j < len(lines) and _floatish(lines[j]):
                     wd = float(lines[j])
                     j += 1
-                if (
-                    has_metric
-                    and j < len(lines)
-                    and (_FAMILY.match(lines[j]) or _WEIGHT_ONLY.match(lines[j]))
-                ):
-                    metric = lines[j]
-                    j += 1
+                if has_metric and j < len(lines):
+                    cand = lines[j]
+                    if re.search(r"x", cand, re.IGNORECASE) or (
+                        _NUMBER.match(cand) and float(cand) >= 10
+                    ):
+                        metric = cand
+                        j += 1
                 if has_md and j < len(lines) and _floatish(lines[j]):
                     md = float(lines[j])
                     j += 1
@@ -178,7 +227,7 @@ def parse_chart_pdf(path: str | Path) -> ChartRecord:
                     hpa = float(lines[j])
                     j += 1
                 vals: list[str] = []
-                while j < len(lines) and len(vals) < n and _FRACTION.match(lines[j]):
+                while j < len(lines) and len(vals) < n and _THK.match(lines[j]):
                     vals.append(lines[j])
                     j += 1
                 if len(vals) < n:
@@ -187,7 +236,11 @@ def parse_chart_pdf(path: str | Path) -> ChartRecord:
                     )
                     i = j
                     continue
-                des = find_designations(label.replace(" x ", "X").replace(" ", ""))
+                des = (
+                    []
+                    if has_wall
+                    else find_designations(label.replace(" x ", "X").replace(" ", ""))
+                )
                 rec.rows.append(
                     ChartRow(
                         pi + 1,
@@ -227,7 +280,8 @@ def write_chart(rec: ChartRecord, out_dir: str | Path) -> Path:
                 "section",
                 "member",
                 "canonical",
-                "wd",
+                "factor",
+                "wd_or_ap",
                 "hp_a",
                 *rec.rating_columns,
             ]
@@ -243,6 +297,7 @@ def write_chart(rec: ChartRecord, out_dir: str | Path) -> Path:
                     r.section,
                     r.member_label,
                     r.canonical,
+                    rec.factor_kind,
                     r.wd,
                     r.hp_a,
                     *r.thickness_as_printed,

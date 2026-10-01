@@ -69,18 +69,23 @@ def _robots_ok(url: str, opener) -> bool:
     return rp.can_fetch(USER_AGENT, url)
 
 
-def _previous(manifest: Path, source_id: str) -> dict | None:
+def _previous(manifest: Path, source_id: str, url: str | None = None) -> dict | None:
+    """Last successful record for this document: matched by URL first (ids may be renamed), then id."""
     if not manifest.exists():
         return None
-    last = None
+    by_url = by_id = None
     for line in manifest.read_text(encoding="utf-8").splitlines():
         try:
             rec = json.loads(line)
         except json.JSONDecodeError:
             continue
-        if rec.get("id") == source_id and rec.get("status") in ("fetched", "unchanged"):
-            last = rec
-    return last
+        if rec.get("status") not in ("fetched", "unchanged"):
+            continue
+        if url and rec.get("url") == url:
+            by_url = rec
+        if rec.get("id") == source_id:
+            by_id = rec
+    return by_url or by_id
 
 
 def fetch_all(
@@ -114,7 +119,7 @@ def fetch_all(
             results.append(res)
             _append(manifest, res)
             continue
-        prev = _previous(manifest, src["id"])
+        prev = _previous(manifest, src["id"], url)
         headers = {"User-Agent": USER_AGENT}
         if prev and prev.get("etag"):
             headers["If-None-Match"] = prev["etag"]

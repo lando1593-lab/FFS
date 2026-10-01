@@ -23,6 +23,8 @@ every later milestone depends on, the LaCie inventory tool, and a first vertical
 | 12 | EDGE spray-report importer (historical takeoffs → structured data) | Done; verified on the user's sample report (3 sheets, 18 items) | `backend/src/ffs/importers/edge_spray_report.py`, `docs/research/C-edge-spray-report-anatomy.md` |
 | 14 | UL Product iQ design parser (BXUV) | Done; verified on X829, S801, P922 (2019 snapshots) | `backend/src/ffs/importers/ul_design.py` |
 | 15 | Manufacturer thickness-workbook importer | Done; 84,444 rows from the two Isolatek workbooks, cell-level provenance | `backend/src/ffs/importers/thickness_workbook.py`, `docs/research/E-design-and-product-data-acquisition.md` |
+| 16 | Public-document fetcher + crawler; first collection run (Isolatek 525 docs, NFCA 300 found) | Done | `backend/src/ffs/sources/`, `docs/research/E-…` |
+| 17 | Isolatek chart importer + first design-layer validation (13/13 beams match the bid; HSS and angles differ, explained) | Done | `docs/validation/2026-10-01-sample-bid-vs-isolatek-charts.md` |
 | 13 | One-command local LaCie inventory bootstrap | Done (macOS/Linux `run.sh`, Windows `run.ps1`); tool under adversarial review | `tools/lacie_inventory/` |
 
 ## Environment (this session)

@@ -68,3 +68,10 @@ answers can be referenced in commits. The ones marked **M1** block Milestone 1 d
     design wall thickness (0.93 × nominal)? On X790 the two give 9/16 in. and 5/8 in. for an
     HSS5X5X3/8 at 1 hour. Your sample bid matches the nominal-wall result. Is that The EDGE's
     default, and does Isolatek's technical staff agree with it?
+25. **M3** X790 allows a tested table (ST 5x5x3/8 → 7/16 in. at 1 hr on Isolatek's chart) and an
+    alternate equation (→ 9/16 in.). Your bid used 9/16. Is that a deliberate conservative
+    choice, an EDGE default, or a mistake you would want flagged? Which route should the
+    software present first?
+26. **M3** For angles under a roof or floor beam design (3-sided), do you use the
+    miscellaneous-shapes chart (4-sided contour W/D) or a beam-substitution calculation? Your bid
+    is 1/16 in. thinner than the chart on both angles.
