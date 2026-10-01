@@ -114,7 +114,11 @@ def route_manifest(
             r = json.loads(line)
         except json.JSONDecodeError:
             continue
-        if r.get("status") in ("fetched", "unchanged") and r.get("stored_path") and r.get("url"):
+        if (
+            r.get("status") in ("fetched", "unchanged", "manual")
+            and r.get("stored_path")
+            and r.get("url")
+        ):
             stored[r["url"]] = r
     results = []
     for url, r in sorted(stored.items()):

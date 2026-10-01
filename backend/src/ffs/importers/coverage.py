@@ -53,7 +53,11 @@ def build_coverage(library: str | Path, parsed: str | Path) -> dict[str, Manufac
     manifest = _read_jsonl(library / "manifest.jsonl")
     stored: dict[str, dict] = {}
     for r in manifest:
-        if r.get("status") in ("fetched", "unchanged") and r.get("url") and r.get("stored_path"):
+        if (
+            r.get("status") in ("fetched", "unchanged", "manual")
+            and r.get("url")
+            and r.get("stored_path")
+        ):
             stored[r["url"]] = r
     report: dict[str, ManufacturerCoverage] = {}
     for url, r in stored.items():

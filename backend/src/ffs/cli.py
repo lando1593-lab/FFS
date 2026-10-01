@@ -420,3 +420,45 @@ def reference_coverage(
     typer.echo(render_markdown(report))
     js, md = write_coverage(report, parsed)
     typer.echo(f"wrote {js} and {md}")
+
+
+@app.command()
+def manual_list(
+    registries_dir: Path = typer.Option(
+        Path("../data/reference_library/registries"), help="folder of per-manufacturer registries"
+    ),
+    out: Path = typer.Option(Path("../data/reference_library/manual"), help="output folder"),
+) -> None:
+    """Write the list of documents a person must download by hand (robots-disallowed hosts)."""
+    from ffs.sources.manual import manual_items, write_manual_list
+
+    regs = sorted(registries_dir.glob("*.json"))
+    items = manual_items(regs)
+    html_path, csv_path = write_manual_list(items, out)
+    by = {}
+    for it in items:
+        by[it.manufacturer] = by.get(it.manufacturer, 0) + 1
+    typer.echo(f"{len(items)} documents to download by hand: {by}")
+    typer.echo(f"open {html_path} in a browser; list also at {csv_path}")
+
+
+@app.command()
+def import_manual(
+    drop_dir: Path = typer.Argument(..., help="folder holding the files you downloaded"),
+    registries_dir: Path = typer.Option(
+        Path("../data/reference_library/registries"), help="folder of per-manufacturer registries"
+    ),
+    library: Path = typer.Option(
+        Path("../data/reference_library/fetched"), help="fetched library root"
+    ),
+) -> None:
+    """File hand-downloaded documents into the library with manifest provenance (method: manual)."""
+    from ffs.sources.manual import import_manual as _import
+
+    regs = sorted(registries_dir.glob("*.json"))
+    results, unmatched = _import(drop_dir, regs, library)
+    from collections import Counter
+
+    typer.echo(f"{len(results)} filed: {dict(Counter(r.status for r in results))}")
+    for name in unmatched:
+        typer.secho(f"  ! not filed (no registry entry with this file name): {name}", fg="yellow")

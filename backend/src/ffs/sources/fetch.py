@@ -85,7 +85,7 @@ def _previous(manifest: Path, source_id: str, url: str | None = None) -> dict | 
             rec = json.loads(line)
         except json.JSONDecodeError:
             continue
-        if rec.get("status") not in ("fetched", "unchanged"):
+        if rec.get("status") not in ("fetched", "unchanged", "manual"):
             continue
         if url and rec.get("url") == url:
             by_url = rec
