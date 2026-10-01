@@ -37,12 +37,18 @@ def sniff(path: str | Path) -> tuple[str, str]:
     if not first.strip():
         return "scanned", first
     if re.search(r"UL Product iQ|BXUV\.[A-Z]{1,3}-?\d{3,4}|Design No\.\s*[A-Z]", first):
-        return "ul_design", all_text
+        from ffs.importers.ul_design import find_design_no
+
+        # a UL design printout carries a BXUV design number (X649, N653, ...); a UL certificate
+        # or notice that merely mentions "Design No." or Product iQ does not, and is not a design
+        if find_design_no(all_text):
+            return "ul_design", all_text
+        return "other", all_text
     if re.search(r"Use Design\s+[A-Z]{1,2}-?\d{3,4}", first):
         return "chart_xref", all_text
     if re.search(
-        r"ASTM\s*Desig|Joist\s*\n\s*Designation|\d-Hour|Hour\s*$", first, re.MULTILINE
-    ) and re.search(r"CAFCO|ISOLATEK", first):
+        r"(?:ASTM|AISC)\s*Desig|Joist\s*\n\s*Designation|\d-Hour|Hour\s*$", first, re.MULTILINE
+    ) and re.search(r"CAFCO|ISOLATEK|Albi\s*DriClad", first):
         return "isolatek_chart", all_text
     if re.search(r"Design No\.|Rating", first) and re.search(r"ISOLATEK|CAFCO", first):
         return "design_text", all_text

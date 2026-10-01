@@ -212,7 +212,9 @@ def import_ul_design(
             )
         for e in rec.equations:
             typer.echo(
-                f"   equation item {e.item_no}: h = R / ({e.a}*(W/D) + {e.b})  W/D {e.wd_range}  h {e.h_range_in}"
+                f"   equation item {e.item_no}: {e.as_printed}  [{e.form}]"
+                + (f"  rating {e.rating}" if e.rating else "")
+                + f"  {e.factor} {e.wd_range}  h {e.h_range} {e.h_units or ''}"
             )
         for t in rec.tables:
             typer.echo(
