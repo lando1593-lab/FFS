@@ -27,6 +27,9 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/ffs"]
 
+[tool.hatch.build]
+include = ["src/ffs/**/*.py", "src/ffs/**/*.json"]
+
 [tool.ruff]
 line-length = 100
 target-version = "py311"
@@ -39,6 +42,7 @@ select = ["E", "F", "I", "UP", "B"]
 "src/ffs/importers/ul_design.py" = ["E501"]
 "tests/test_ul_design.py" = ["E501"]
 "tests/test_lacie_inventory.py" = ["E501"]
+"src/ffs/sources/fetch.py" = ["E501"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

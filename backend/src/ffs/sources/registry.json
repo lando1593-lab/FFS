@@ -1,0 +1,29 @@
+{
+  "_about": "Registry of PUBLIC reference documents the fetcher may download. Only hosts listed under 'allowed_hosts' are ever contacted. UL Product iQ is deliberately absent: it requires a login and its terms do not permit automated retrieval; UL designs are pulled by a person and parsed with `ffs import-ul-design`. Entries with url=null are known documents whose exact URL has not been confirmed yet; the fetcher skips them and lists them so a person (or a session with network access) can confirm the link.",
+  "allowed_hosts": [
+    "www.isolatek.com", "isolatek.com",
+    "gcpat.com", "www.gcpat.com",
+    "www.carboline.com", "carboline.com",
+    "www.sherwin-williams.com", "protective.sherwin-williams.com", "industrial.sherwin-williams.com",
+    "www.ppgpmc.com", "www.hilti.com", "www.international-pc.com", "www.nullifire.com",
+    "www.iccsafe.org", "codes.iccsafe.org", "icc-es.org", "www.icc-es.org",
+    "www.intertek.com", "bpdirectory.intertek.com",
+    "www.aisc.org", "www.nfca-online.org", "www.awci.org"
+  ],
+  "sources": [
+    {"id": "isolatek-cafco-400-tds", "manufacturer": "Isolatek", "product": "CAFCO 400", "kind": "product_data", "url": null, "notes": "C-TDS; copy dated 10-19 in hand"},
+    {"id": "isolatek-cafco-300-tds", "manufacturer": "Isolatek", "product": "CAFCO 300", "kind": "product_data", "url": null},
+    {"id": "isolatek-blaze-shield-ii-tds", "manufacturer": "Isolatek", "product": "BLAZE-SHIELD II", "kind": "product_data", "url": null, "notes": "copy dated 09-20 in hand"},
+    {"id": "isolatek-ul-design-directory", "manufacturer": "Isolatek", "product": null, "kind": "design_listing", "url": null, "notes": "per-product UL design lists / thickness charts (Estimating Center)"},
+    {"id": "isolatek-sprayfilm-wb3-tds", "manufacturer": "Isolatek", "product": "SprayFilm WB 3", "kind": "product_data", "url": null, "notes": "copy dated 10-19 in hand"},
+    {"id": "isolatek-firesolve-sb-tds", "manufacturer": "Isolatek", "product": "FIRESOLVE SB", "kind": "product_data", "url": null, "notes": "copy dated 10-24 in hand"},
+    {"id": "gcp-monokote-mk6hy-tds", "manufacturer": "GCP", "product": "MONOKOTE MK-6/HY", "kind": "product_data", "url": null, "notes": "copy #5546 in hand"},
+    {"id": "gcp-monokote-z146-tds", "manufacturer": "GCP", "product": "MONOKOTE Z-146", "kind": "product_data", "url": null},
+    {"id": "gcp-all-ul-thickness-chart", "manufacturer": "GCP", "product": null, "kind": "thickness_chart", "url": null, "notes": "consolidated UL thickness chart (likely exists; confirm)"},
+    {"id": "carboline-thermo-sorb-pds", "manufacturer": "Carboline", "product": "Thermo-Sorb", "kind": "product_data", "url": null, "notes": "HB PDS in hand"},
+    {"id": "carboline-pyrocrete-241-pds", "manufacturer": "Carboline", "product": "Pyrocrete 241", "kind": "product_data", "url": null},
+    {"id": "sw-firetex-fx9502-tds", "manufacturer": "Sherwin-Williams", "product": "FIRETEX FX9502", "kind": "product_data", "url": null, "notes": "set in hand incl. application manual rev 13 May 2021"},
+    {"id": "aisc-shapes-database-v16", "manufacturer": "AISC", "product": "Shapes Database v16.0", "kind": "reference_table", "url": null, "notes": "free download from aisc.org; not redistributed in repo"},
+    {"id": "ibc-2021-chapter-7", "manufacturer": "ICC", "product": "IBC 2021", "kind": "code", "url": null, "notes": "public access view on codes.iccsafe.org; terms permit reading, not bulk copying"}
+  ]
+}

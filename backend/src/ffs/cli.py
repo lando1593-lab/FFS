@@ -253,6 +253,38 @@ def import_thickness_workbook(
     typer.echo(f"outputs in {out}/")
 
 
+@app.command("fetch-sources")
+def fetch_sources(
+    library: Path = typer.Option(
+        Path("../data/reference_library/fetched"), help="where documents are stored"
+    ),
+    registry: Path = typer.Option(None, help="registry JSON (default: built-in)"),
+    only: list[str] = typer.Option(None, help="source ids to fetch (repeatable)"),
+) -> None:
+    """Fetch PUBLIC reference documents listed in the registry (allowed hosts only, robots honoured)."""
+    from ffs.sources.fetch import fetch_all, load_registry
+
+    reg = load_registry(registry)
+    results = fetch_all(library, reg, only or None)
+    for r in results:
+        flag = {
+            "fetched": "+",
+            "unchanged": "=",
+            "skipped_no_url": "?",
+            "refused_host": "!",
+            "robots_disallow": "!",
+            "error": "x",
+        }[r.status]
+        typer.echo(
+            f" {flag} {r.id:<36} {r.status:<16} {r.http_status or ''} {r.stored_path or r.error or ''}"
+            + ("  CHANGED since last fetch" if r.changed else "")
+        )
+    n_url = sum(1 for r in results if r.status != "skipped_no_url")
+    typer.echo(
+        f"{len(results)} sources, {n_url} with confirmed URLs; manifest at {library}/manifest.jsonl"
+    )
+
+
 @app.command()
 def synth(out_dir: Path = Path("golden/synthetic/gp0_simple_bay")) -> None:
     """Generate the synthetic golden sheet + truth.json."""
