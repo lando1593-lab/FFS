@@ -77,6 +77,7 @@ class ChartRow:
     as_printed: list[str]
     not_rated: list[bool]
     footnote_markers: list[str] = field(default_factory=list)
+    depth_in: float | None = None  # joist charts: printed joist depth
     # AISC designation composed from a printed tube label ("ST 5 x 5 x 3/8" → HSS5X5X3/8) when
     # the chart prints no designation; None otherwise. Always labelled as derived when used.
     derived_canonical: str | None = None
@@ -165,6 +166,7 @@ class DesignLibrary:
                 r.get("thickness_as_printed") or [],
                 r.get("not_rated") or [],
                 markers,
+                r.get("depth_in"),
                 None if r.get("canonical") else derived_tube_canonical(r.get("member_label") or ""),
             )
             for r in c.get("rows") or []
@@ -193,7 +195,8 @@ class DesignLibrary:
                 r.get("page") or 0,
                 c.get("restraint"),
                 r.get("group"),
-                " ".join(x for x in (c.get("assembly"), c.get("concrete")) if x) or None,
+                " ".join(x for x in (c.get("assembly"), c.get("restraint"), c.get("concrete")) if x)
+                or None,
                 c.get("products"),
                 c.get("chart_date"),
                 r.get("member_label") or "",
@@ -212,7 +215,7 @@ class DesignLibrary:
             rows,
             [],
             c.get("source_file") or "",
-            c.get("assembly"),
+            rows[0].condition if rows else c.get("assembly"),
             c.get("products"),
             c.get("chart_date"),
             c.get("notes") or [],

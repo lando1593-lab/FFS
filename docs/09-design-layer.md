@@ -30,7 +30,8 @@ of four statuses:
 | `rating_hours` | the chart/table column ("1-1/2 Hr", "90 min", "1.5 hr" all read as hours) |
 | `restraint` | chart section ("Restrained Beam" / "Unrestrained Beam") and UL table condition; a section label printed only on a later page of the same chart is accepted with a note |
 | `product` | required phrase on the chart's product line (whole words: "CAFCO 400" matches "CAFCO® 300 Series, CAFCO® 400 & …"); UL tables are product-agnostic |
-| `application` | `contour` (default) or `half_flange_tip`; Isolatek prints separate charts and they differ |
+| `application` | `contour` (default) or `half_flange_tip`; Isolatek prints separate charts, GCP prints both as column groups of one chart; they differ |
+| `joist_depth_in` | shop drawings specify steel joists by depth; every chart designation of that depth is gathered, equal values collapse into one candidate listing the designations, unequal values are a conflict |
 | `condition` | assembly condition or column group phrase ("Protected Roof Deck", "LIGHTWEIGHT CONCRETE FILL"); cross-references carry the source chart's condition automatically |
 | `ratio`, `ratio_kind`, `ratio_source` | the section factor for the equation route when the caller has it (AISC database); otherwise a printed W/D or A/P for the same member from a UL row or chart row is used and cited |
 

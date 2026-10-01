@@ -75,3 +75,19 @@ answers can be referenced in commits. The ones marked **M1** block Milestone 1 d
 26. **M3** For angles under a roof or floor beam design (3-sided), do you use the
     miscellaneous-shapes chart (4-sided contour W/D) or a beam-substitution calculation? Your bid
     is 1/16 in. thinner than the chart on both angles.
+
+## Added 2026-10-01 from validation 2 (five submitted shop-drawing sets)
+27. **Column thickness route.** On X829 and X790 wide-flange columns the submitted values equal
+    the UL equation result, not the manufacturer chart row; on X854 (MK-6/HY) they equal the
+    table. What is the company rule, and is it per manufacturer? (The engine returns both and
+    needs the choice recorded as a HUMAN_OVERRIDE class.)
+28. **Four-sided beams.** Seven "4 Sides" rows are one sixteenth above the 3-sided beam chart.
+    Which basis is used: the column chart for the same section, a 4-sided contour table, or a
+    rule of thumb?
+29. **N830 joists at 9/16 in.** The joist charts print 15/16 to 1-1/8+ at 1 h with a lath/mesh
+    footnote. What is the basis of 9/16?
+30. **EDGE code tokens.** Confirm: NW/LW = concrete weight; C on beam designs = cellular or
+    corrugated deck; C on column designs = wide-flange; P/T = pipe/tube. What do the suffix F
+    (P723F, P819F) and the token B mean?
+31. **Thin exceptions.** W16x100 under N823 at 1 h submitted at 1/4 in. (chart 3/8): a minimum
+    thickness rule, a W/D cap, or an error?

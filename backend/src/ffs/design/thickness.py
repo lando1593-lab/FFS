@@ -39,6 +39,7 @@ class ThicknessQuery:
     ratio_source: str | None = None
     application: str = "contour"  # "contour" (full) or "half_flange_tip"; charts say which
     condition: str | None = None  # assembly condition to require on a chart ("Protected Roof Deck")
+    joist_depth_in: float | None = None  # steel joists are specified by depth on shop drawings
 
 
 @dataclass
@@ -282,15 +283,18 @@ def _chart_candidates(
                     _chart_candidates(lib, target, q, chain + [target], reasons, cs.condition)
                 )
             continue
-        if _application_of(cs) != q.application:
-            continue
+        if _application_of(cs) != q.application and not any(r.group for r in cs.rows):
+            continue  # a chart printed for the other application (half-flange tip option)
         if condition and not _has_phrase(cs.condition, condition):
             # the condition may be a column group instead ("LIGHTWEIGHT CONCRETE FILL")
             if not any(_has_phrase(r.group, condition) for r in cs.rows if r.group):
                 continue
         sections = {_restraint_of(r.section) for r in cs.rows if _restraint_of(r.section)}
         for r in cs.rows:
-            if (r.canonical or r.derived_canonical) != q.member:
+            if q.joist_depth_in is not None:
+                if r.depth_in is None or abs(r.depth_in - q.joist_depth_in) > 1e-6:
+                    continue
+            elif (r.canonical or r.derived_canonical) != q.member:
                 continue
             if condition and r.group and not _has_phrase(cs.condition, condition):
                 if not _has_phrase(r.group, condition):
@@ -304,6 +308,10 @@ def _chart_candidates(
                     if sections != {q.restraint}:
                         continue
                     note.append("section label printed on a later page of the same chart")
+            if r.group and (
+                ("half_flange_tip" if _HALF_FLANGE.search(r.group) else "contour") != q.application
+            ):
+                continue  # GCP prints full and half flange tip as column groups of one chart
             if r.canonical is None and r.derived_canonical:
                 note.append(f"designation derived from the printed label {r.member_label!r}")
             idx = _column_index(r.rating_columns, q.rating_hours)
@@ -394,6 +402,42 @@ def _shape_chart_candidates(
     return out
 
 
+def _collapse_joists(cands: list[Candidate], q: ThicknessQuery) -> list[Candidate]:
+    """Joist charts print one row per designation; a depth query gathers every designation of
+    that depth. Equal values collapse into one candidate that lists the designations; unequal
+    values stay separate (and the resolution becomes a conflict)."""
+    if q.joist_depth_in is None:
+        return cands
+    out: list[Candidate] = []
+    for c in cands:
+        key = (
+            c.thickness_in,
+            c.source.get("document"),
+            c.source.get("section"),
+            c.source.get("column"),
+        )
+        for o in out:
+            if (
+                o.thickness_in,
+                o.source.get("document"),
+                o.source.get("section"),
+                o.source.get("column"),
+            ) == key:
+                o.source.setdefault("rows", [o.source.get("row")]).append(c.source.get("row"))
+                break
+        else:
+            c.notes.append(
+                f"joist depth {q.joist_depth_in:g} in: every designation of this depth printed"
+            )
+            out.append(c)
+    for o in out:
+        if "rows" in o.source:
+            o.source["row"] = f"{len(o.source['rows'])} designations: " + ", ".join(
+                o.source["rows"]
+            )
+    return out
+
+
 def _dedupe(cands: list[Candidate]) -> list[Candidate]:
     """Collapse identical printed cells reached through two copies of the same chart."""
     out: list[tuple[tuple, Candidate]] = []
@@ -462,7 +506,7 @@ def resolve(lib: DesignLibrary, q: ThicknessQuery) -> Resolution:
     else:
         reasons.append(f"no UL printout for {q.design} in the library; manufacturer chart only")
     candidates.extend(_chart_candidates(lib, q.design, q, [q.design], reasons, q.condition))
-    candidates = _dedupe(candidates)
+    candidates = _dedupe(_collapse_joists(candidates, q))
     if not candidates:
         shape = _dedupe(_shape_chart_candidates(lib, q, reasons))
         if shape:

@@ -598,3 +598,70 @@ def meter(
 
     s, prj = _project(db, project_id)
     typer.echo(json.dumps(resolution_meter(s, prj, ensure_base_scenario(s, prj)), indent=1))
+
+
+@app.command()
+def import_drawing_report(
+    pdf: Path = typer.Argument(..., help="EDGE Fireproofing Drawing Report / Spray Chart PDF"),
+    out: Path = typer.Option(Path("out_drawing_report"), help="output directory"),
+) -> None:
+    """Parse the legend rows (member, design code, hours, thickness) of a shop-drawing report."""
+    from ffs.importers.edge_drawing_report import parse_drawing_report, write_drawing_report
+
+    rep = parse_drawing_report(pdf)
+    p = write_drawing_report(rep, out)
+    n = sum(len(s.rows) for s in rep.sheets)
+    typer.echo(
+        f"{rep.project} | {rep.report_name} | {rep.print_date}: {len(rep.sheets)} sheets, {n} legend rows → {p}"
+    )
+    for note in rep.notes:
+        typer.secho(f"  ! {note}", fg="yellow")
+
+
+@app.command()
+def check_drawing_report(
+    pdf: Path = typer.Argument(..., help="EDGE Fireproofing Drawing Report PDF"),
+    parsed: Path = typer.Option(Path("../data/reference_library/parsed"), help="parsed root"),
+    show: str = typer.Option("differs", help="comma list of verdicts to print in full, or 'all'"),
+) -> None:
+    """Check every legend row of a shop-drawing report against the design library."""
+    from ffs.design.library import DesignLibrary
+    from ffs.design.report_check import check_drawing_report as _check
+    from ffs.design.report_check import summarize
+    from ffs.importers.edge_drawing_report import parse_drawing_report
+
+    rep = parse_drawing_report(pdf)
+    checks = _check(DesignLibrary.load(parsed), rep)
+    typer.echo(f"{rep.project}: {summarize(checks)}")
+    wanted = None if show == "all" else {x.strip() for x in show.split(",")}
+    for c in checks:
+        if wanted is not None and not any(c.verdict.startswith(w) for w in wanted):
+            continue
+        r = c.row
+        eng = c.resolution.distinct_values() if c.resolution else []
+        typer.echo(
+            f"- {c.sheet} | {r.description} | {r.design_code} {r.hours} h | bid {r.thickness_as_printed} | engine {eng} | {c.verdict}"
+        )
+        for n in c.interpretations + c.assumptions:
+            typer.echo(f"    {n}")
+        if c.resolution:
+            for cand in c.resolution.candidates[:4]:
+                src = {
+                    k: v
+                    for k, v in cand.source.items()
+                    if k
+                    in (
+                        "design",
+                        "chart_date",
+                        "condition",
+                        "section",
+                        "group",
+                        "row",
+                        "column",
+                        "via",
+                    )
+                    and v
+                }
+                typer.echo(f"    {cand.method} {cand.thickness_in} {src}")
+            for reason in c.resolution.reasons[:3]:
+                typer.secho(f"    - {reason}", fg="yellow")
