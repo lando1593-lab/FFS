@@ -97,3 +97,27 @@ not in the original brief that the brief implies.
 | NFR-IDS-01 | ULIDs for all entities; IDs never reused; soft-delete only. |
 | NFR-LACIE-01 | Reference library is read-only; the inventory tool opens files read-only and never writes into the library path. |
 | NFR-OFF-01 | Field mode must tolerate offline use (design the model for sync; implement in M10). |
+
+
+## Added 2026-10-01 — intelligent first pass (see docs/08-gap-analysis.md)
+| ID | Requirement | M |
+|----|-------------|---|
+| FR-PRE-01 | Project preflight over the whole document set producing a typed ProjectProfile (project info, document set, building data, fire-resistance summary, structural systems, architectural exposure cues, specified fireproofing) with per-field evidence | 2 |
+| FR-PRE-02 | Missing-document detection: referenced sheets, details, designs and addenda not in the set, with estimating impact | 2 |
+| FR-SCOPE-01 | Five-state scope classification per member (in / out / likely in / likely out / unknown) with reason and evidence; never defaults to "all steel sprayed" | 2 |
+| FR-SCOPE-02 | Exclusion categories flagged, not auto-excluded (existing, demo, temporary, misc metals, stairs, embedded, alternate assemblies, outside limits) | 2 |
+| FR-EXP-02 | Intumescent candidate detection with confidence tiers from architectural cues; dedicated review mode with bulk accept | 5 |
+| FR-REV-01 | ReviewItem entity for unknown / conflict / missing document / assumption / RFI candidate with known / likely / why / missing / options and a lifecycle | 2 |
+| FR-REV-02 | Bulk actions by level, area, zone, type, designation, rating, protection, exposure, condition, grid range, sheet, confidence; preview before apply; audited | 2 |
+| FR-REV-03 | Natural-language editing as a front end to bulk actions, always previewed | Future |
+| FR-SCN-01 | Physical member layer immutable; all interpretation scenario-scoped (ADR-0005) | 2 |
+| FR-SCN-02 | Product switching and live recalculation with deltas (quantity, members affected); mixed systems by zone | 4 |
+| FR-SCN-03 | Scenario comparison (base, alternates, VE, post-bid) on quantities, LF, surface area, special conditions | 4 |
+| FR-SPEC-01 | Specification intelligence: acceptable products, basis of design, substitutions, surface prep, primer, bonding agent, reinforcement, density, testing, inspection, patching, finish, environmental, submittals, warranty, closeout | 3 |
+| FR-CONF-01 | Conflict engine with conflict IDs, evidence for each side, resolution options; never silently chooses | 2 |
+| FR-ASSUME-01 | Assumption register from ASSUMPTION assertions and engine defaults; accept / edit / delete / convert to RFI / add to proposal exclusions | 2 |
+| FR-RFI-01 | RFI candidates drafted from unresolved items; never sent automatically | 3 |
+| FR-READY-01 | Resolution meter derived from unresolved items by category; bid-readiness list; proceeding allowed with items visible | 4 |
+| FR-STATE-01 | Estimated / contracted / approved / field / as-built stages as frozen snapshots | 10 |
+| FR-MEM-01 | Correction memory: AI proposal, human decision, reason, class (company practice / estimator preference / project-specific / code / manufacturer); informs proposals, never becomes a rule automatically | 5 |
+| FR-COND-01 | Special-condition detectors (primed, galvanized, painted, exterior, bonding agent, lath/mesh, topcoat, density, patching, deck interfaces, trusses, joists) from notes and specs; evidence-driven | 3 |

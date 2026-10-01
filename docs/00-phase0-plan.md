@@ -82,3 +82,19 @@ behaviour: a text-only scale is a 0.75-confidence fact.
 - Scale is per sheet; multi-viewport sheets are flagged, not handled.
 - Dimension corroboration raises per-member length confidence but does not yet raise the sheet's
   scale confidence globally.
+
+
+## Roadmap re-cut (2026-10-01, after the "intelligent first pass" standard)
+Milestone numbers from the original brief are kept; content is re-balanced so that review-queue
+infrastructure arrives early and reference data (already in hand) is used sooner.
+
+| Milestone | Content | Depends on |
+|---|---|---|
+| M1 | Structural takeoff on real drawings: schedules, columns, cross-sheet dedupe, OCR path, two real goldens with measured accuracy | user's drawing sets |
+| M2 | Preflight + code profile + ReviewItem entity + physical/interpretation split (ADR-0005) + scope engine + conflict and missing-document engines + bulk actions (CLI/API) | M1 detector accuracy |
+| M3 | Design engine: section factors, thickness resolution against the parsed UL designs and manufacturer charts/workbooks, spec intelligence, special-condition detectors, RFI candidates | reference library (in progress) |
+| M4 | Material quantities, scenarios, product switching with deltas, resolution meter, bid readiness | M2, M3 |
+| M5 | Exposure engine and intumescent review workspace; correction memory | architectural sheet understanding |
+| M6–M10 | Shop drawings, submittals, field drawings, revisions, operations/stages (unchanged) | M4 |
+The web viewer (drawing-first review UI) starts at M2 because the review queue is unusable
+without it.

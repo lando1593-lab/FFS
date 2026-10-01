@@ -60,3 +60,23 @@ integration (Procore, manufacturer data refresh, LLM) is explicitly configured.
 ## Milestone-1 subset implemented in Phase 0
 `backend/src/ffs/`: `ingest/pdf.py`, `ingest/scale.py`, `steel/designation.py`, `steel/aisc.py`,
 `steel/labels.py`, `steel/geometry.py`, `takeoff/`, `render/overlay.py`, `db/models.py`, `cli.py`.
+
+
+## Intelligence layer (added 2026-10-01; see docs/08-gap-analysis.md and ADR-0005)
+Sits between ingest and the project model. Every module writes assertions and review items; none
+writes to the physical member layer.
+
+| module | input | output | deterministic / AI |
+|---|---|---|---|
+| Preflight | all sheets + specs | `ProjectProfile`: project info, document set (incl. referenced-but-missing sheets, superseded sheets), building data, levels/areas, disciplines per sheet | deterministic extraction; AI may read code-summary prose into typed fields as INTERPRETATION |
+| Code profile | code summary sheets, specs, notes | `CodeProfile` + `RatingAssignment`s per element category with rule references | deterministic rules over typed profile |
+| Scope engine | member layer + profile + exposure + notes | `ScopeAssertion` per member (5 states) with reason and evidence | deterministic rules; AI only for note interpretation |
+| Exposure engine | architectural sheets (RCPs, sections, elevations, finish schedules), room/zone geometry | exposure class + intumescent candidate tier per member | text cues + spatial join; AI for ambiguous notes |
+| Spec intelligence | Division 07 sections, addenda | `SpecProfile`: acceptable products, basis of design, primers, density, testing, submittals, warranty | section locator deterministic; clause typing AI-assisted, reviewable |
+| Conflict engine | any two assertions on the same key/subject from different sources | `ReviewItem(kind=conflict)` with both sides | deterministic |
+| Missing-document engine | callouts, sheet index, spec design references vs uploaded set | `ReviewItem(kind=missing_document)` with estimating impact | deterministic |
+| Assumption register | ASSUMPTION assertions from every module + engine defaults (waste, unrated roof…) | `ReviewItem(kind=assumption)` lifecycle: accept / edit / delete / RFI / proposal exclusion | deterministic |
+| Review queue + bulk edit | review items, filters | resolution actions (HUMAN_OVERRIDE assertions), bulk actions with preview and audit | deterministic |
+| Scenario + recalculation | assignment sets, reference data | quantities per scenario; deltas on any change (members affected, bags, LF) | deterministic |
+| Bid readiness + resolution meter | review items, assignments | readiness list; per-category resolution percentages | deterministic |
+| Stages | scenario snapshots | estimated / contracted / approved / field / as-built | deterministic |
