@@ -763,3 +763,16 @@ def test_fused_thickness_cells_are_split_but_joist_mixed_numbers_are_not(tmp_pat
     rec2 = parse_chart_pdf(joist)
     assert len(rec2.rows) == 1 and rec2.rows[0].thickness_in == [1.1875, 2.3125]
     assert rec2.notes == []
+
+
+def test_single_spaced_bare_integers_are_not_split_into_cells():
+    """N805r AF & C: corrupted duplicate lines like "97 8" and "1 37" (a weight or ratio with its
+    decimal point dropped) must not be read as two thickness cells, which would manufacture rows
+    such as 'W40 x 97'. Only a run of two or more spaces separates fused cells."""
+    from ffs.importers.isolatek_chart import _normalize_lines
+
+    assert _normalize_lines(["97 8"]) == ["97 8"]
+    assert _normalize_lines(["1 37"]) == ["1 37"]
+    assert _normalize_lines(["2     2-11/16"]) == ["2", "2-11/16"]
+    assert _normalize_lines(["NR  NR"]) == ["NR", "NR"]
+    assert _normalize_lines(["1  3/16"]) == ["1  3/16"]

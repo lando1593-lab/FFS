@@ -60,10 +60,11 @@ _RATING_HDR = re.compile(rf"^(?:\d(?:-\d/\d)?\s*-?\s*Hour[{_MARKERS}]*\s*)+$", r
 # a rating header broken over two lines: "2-1/2-" then "Hour"
 _RATING_SPLIT_A = re.compile(r"^\d(?:-\d/\d)?\s*-?$")
 _RATING_SPLIT_B = re.compile(rf"^Hour[{_MARKERS}]*$", re.IGNORECASE)
-# two thickness cells fused into one text span ("2     2-11/16", "NR  NR"); a joist mixed number
-# ("1  3/16", whole + bare fraction) is one cell and is left alone
+# two thickness cells fused into one text span by a run of spaces ("2     2-11/16", "NR  NR");
+# a joist mixed number ("1  3/16", whole + bare fraction) is one cell, and a corrupted number
+# with its decimal point dropped ("97 8", "1 37": single space, both bare integers) is not split
 _CELL_TOK = rf"(?:\d+(?:-\d+/\d+)?|\d*\.\d+|NR)[{_MARKERS}]*"
-_FUSED_CELLS = re.compile(rf"^(?P<a>{_CELL_TOK})\s+(?P<b>{_CELL_TOK})$", re.IGNORECASE)
+_FUSED_CELLS = re.compile(rf"^(?P<a>{_CELL_TOK})\s{{2,}}(?P<b>{_CELL_TOK})$", re.IGNORECASE)
 _FOOTNOTE = re.compile(rf"^(?P<m>[{_MARKERS}]+)\s*(?=\S)")
 _PRODUCT = re.compile(r"CAFCO|ISOLATEK|Albi\s*DriClad")
 _PRODUCT_LINE = re.compile(r"^(?:CAFCO|ISOLATEK|Albi\s*DriClad)")
@@ -201,7 +202,7 @@ def _normalize_lines(lines: list[str]) -> list[str]:
             skip = True
             continue
         fm = _FUSED_CELLS.match(ln)
-        if fm:
+        if fm and not (_NUMBER.match(fm.group("a")) and _NUMBER.match(fm.group("b"))):
             out.extend([fm.group("a"), fm.group("b")])
             continue
         out.append(ln)
