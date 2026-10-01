@@ -65,7 +65,11 @@ _R_UNITS = re.compile(
     r"R\s*=\s*Fire resistance rating(?: period)?\s*(?:in)?\s*(?P<u>minutes|hours|min|h)\b",
     re.IGNORECASE,
 )
-_RATING_COL = re.compile(r"^(?P<r>\d(?:-\d/\d{1,2})?|\d/\d|1/2)\s*Hr\.?$")
+_RATING_COL = re.compile(r"^(?:[A-Za-z.]+\s+)*(?P<r>\d(?:-\d/\d{1,2})?|\d/\d|1/2)\s*Hr\.?$")
+# non-AISC member labels used in UL column tables: "SP 4x0.237" (std pipe), "ST 4x4x0.375", "ST20x20x0.75 in."
+_TUBE_LABEL = re.compile(
+    r"^(?:SP|ST|RT|HSS|PIPE|TS)\s?\d+(?:\.\d+)?(?:x\d+(?:\.\d+)?){1,2}(?:\s?in\.?)?$", re.IGNORECASE
+)
 _RATING_CELL = re.compile(
     r"^(?P<a>\d(?:-\d/\d{1,2})?|\d/\d)(?:\s*(?:or|,)\s*(?P<b>\d(?:-\d/\d{1,2})?|\d/\d))?$"
 )
@@ -216,6 +220,13 @@ def strip_page_furniture(text: str) -> tuple[str, str | None, str | None]:
     return text, snap, url
 
 
+def _is_size_label(ln: str) -> bool:
+    core = ln.lstrip("*").strip()
+    if len(core) > 24:
+        return False
+    return bool(find_designations(core)) or bool(_TUBE_LABEL.match(core))
+
+
 def _parse_size_wd_table(
     lines: list[str],
     i: int,
@@ -230,9 +241,12 @@ def _parse_size_wd_table(
     n = len(rating_cols)
     while i < len(lines):
         ln = lines[i].strip()
-        des = find_designations(ln.lstrip("*"))
-        if not des or len(ln) > 20:
+        if not ln:
+            i += 1
+            continue
+        if not _is_size_label(ln):
             break
+        des = find_designations(ln.lstrip("*"))
         label = ln
         j = i + 1
         wd = None
@@ -248,7 +262,7 @@ def _parse_size_wd_table(
         row = TableRow(
             cells=[label] + ([f"{wd}"] if wd is not None else []) + vals,
             label=label.lstrip("*"),
-            canonical=des[0].canonical,
+            canonical=des[0].canonical if des else None,
             wd=wd,
             values_in=[frac_in(_THK_CELL.match(v).group("v")) for v in vals],
             note="*" if label.startswith("*") else None,
@@ -360,9 +374,26 @@ def parse_design_text(text: str, source_file: str | None = None) -> DesignRecord
         if _RATING_COL.match(s):
             cols = []
             j = i
-            while j < len(lines) and _RATING_COL.match(lines[j].strip()):
-                cols.append(lines[j].strip())
-                j += 1
+            while j < len(lines):
+                t = lines[j].strip()
+                if _RATING_COL.match(t):
+                    cols.append(_RATING_COL.match(t).group("r") + " Hr")
+                    j += 1
+                    continue
+                # blank lines and digit-less label fragments ("Min Thkns") inside the run: skip
+                # ahead if a rating line follows within the next few lines
+                q = None
+                for cand in range(j + 1, min(j + 5, len(lines))):
+                    c = lines[cand].strip()
+                    if _RATING_COL.match(c):
+                        q = cand
+                        break
+                    if c and re.search(r"\d", c):
+                        break
+                if q is not None and (not t or not re.search(r"\d", t)):
+                    j = q
+                    continue
+                break
             hdr = [x.strip() for x in lines[max(0, i - 6) : i] if x.strip()]
             tbl, j2 = _parse_size_wd_table(
                 lines, j, cols, cur.no if cur else None, hdr, pending_condition
@@ -378,8 +409,7 @@ def parse_design_text(text: str, source_file: str | None = None) -> DesignRecord
         # a continuation size table after a "table below" sentence, reusing the last rating columns
         if (
             last_rating_cols
-            and find_designations(s.lstrip("*"))
-            and len(s) <= 12
+            and _is_size_label(s)
             and i + 1 < len(lines)
             and _FLOAT.match(lines[i + 1].strip())
         ):

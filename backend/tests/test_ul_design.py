@@ -110,6 +110,67 @@ def test_beam_design_mini():
     assert t.rows[3].values_in == [2.5625]
 
 
+TUBES = """Design No. X998
+May 03, 2018
+Ratings — 1, 1-1/2, 2, 3, 4 Hr
+2. Spray-Applied Fire Resistive Materials* — Applied to the thicknesses shown.
+The min thickness required for contour sprayed steel pipes or tubes are shown on the table below:
+Min 
+Column 
+Size In.
+ 
+A/P
+ 
+ 
+1 Hr
+ 
+ 
+1-1/2 Hr
+ 
+Min Thkns 
+In. 2 Hr
+ 
+ 
+3 Hr
+ 
+ 
+4 Hr
+SP 4x0.237
+0.22
+11/16
+1
+1-3/8
+2-1/16
+2-3/4
+ST 4x4x0.375
+0.34
+7/16
+3/4
+1
+1-9/16
+2-1/8
+ST20x20x0.75 in
+0.72
+5/16
+1/2
+11/16
+1-1/16
+1-7/16
+EXAMPLE MFG CO — Type 300.
+Last Updated on 2018-05-03
+"""
+
+
+def test_tube_table_with_split_header():
+    rec = parse_design_text(TUBES)
+    assert len(rec.tables) == 1
+    t = rec.tables[0]
+    assert t.rating_columns == ["1 Hr", "1-1/2 Hr", "2 Hr", "3 Hr", "4 Hr"]
+    assert [r.label for r in t.rows] == ["SP 4x0.237", "ST 4x4x0.375", "ST20x20x0.75 in"]
+    assert t.rows[1].wd == 0.34 and t.rows[1].values_in == [0.4375, 0.75, 1.0, 1.5625, 2.125]
+    assert t.rows[0].canonical is None
+
+
 REF = Path(os.environ.get("FFS_REFERENCE_LIBRARY", "/home/user/FFS/data/reference_library"))
 
 
