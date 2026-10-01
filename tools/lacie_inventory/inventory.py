@@ -56,7 +56,7 @@ from pathlib import Path
 MANUFACTURERS = {
     "isolatek": ["isolatek", "cafco", "blaze-shield", "blaze shield", "blazeshield", "fendolite", "sprayfilm"],
     "gcp/grace": ["monokote", "mk-6", "mk6", "mk 6", "z-146", "z146", "z-156", "z156", "z-106", "z106",
-                  "w.r. grace", "w. r. grace", "wr grace", "grace construction", "gcp applied", "gcp "],
+                  "w.r. grace", "w. r. grace", "wr grace", "grace construction", "gcp applied", "gcp", "gcpat"],
     "carboline": ["carboline", "pyrocrete", "pyrolite", "thermo-sorb", "thermosorb", "thermo-lag", "thermolag",
                   "pyroclad", "southwest type", "southwest 5gp", "southwest 7gp"],
     "sherwin-williams": ["firetex", "sherwin"],
@@ -72,7 +72,8 @@ DOC_TYPES = {
     "ul_design": ["bxuv", "design no", "design number", "fire resistance rating", "restrained assembly rating",
                   "unrestrained beam rating", "unrestrained assembly rating", "ul 263", "ul263", "astm e119", "e-119",
                   "product iq", "classified by underwriters"],
-    "listing_report": ["evaluation report", "esr-", "icc-es", "icc es", "intertek", "warnock hersey", "certificate of",
+    "listing_report": ["evaluation report", "esr-", "icc-es", "icc es", "intertek", "warnock hersey",
+                       "certificate of compliance", "certificate of conformance", "certificate of listing",
                        "certification", "listing report", "design listing", "fm approvals", "test report"],
     "shape_table": ["w/d", "weight per foot", "heated perimeter", "section factor", "nominal depth", "flange width",
                     "web thickness", "flange thickness", "wt/ft", "lbs/ft", "perimeter"],
@@ -95,7 +96,7 @@ DOC_TYPES = {
     "specification": ["section 07 81", "07 81 00", "07 81 16", "07 81 23", "078100", "078116", "078123", "07810",
                       "07250", "sprayed fire-resistive", "spray-applied fire-resistive", "part 1 - general",
                       "part 2 - products", "part 3 - execution", "guide specification"],
-    "estimate": ["takeoff", "take-off", "bid recap", "recap", "board feet", "bd ft", "bd. ft.", "bags required",
+    "estimate": ["estimate", "takeoff", "take-off", "bid recap", "recap", "board feet", "bd ft", "bd. ft.", "bags required",
                  "unit price", "quantity survey", "bid form", "estimating program", "estimating guide",
                  "estimating worksheet", "budget worksheet"],
     "proposal_bid_letter": ["proposal", "bid letter", "we propose", "scope of work", "exclusions", "inclusions",
@@ -122,54 +123,58 @@ DOC_TYPES = {
     "sustainability_compliance": ["leed", "voc content", "hpd", "chpd", "epd", "environmental product declaration",
                                   "cdph", "low emitting", "sustainability"],
     "warranty": ["warranty", "warrants", "warranted"],
-    "contact_list": ["contact list", "phone", "email", "rep ", "sales representative", "territory manager"],
-    "correspondence": ["dear ", "regards,", "sincerely", "rfi", "request for information", "change order", "memo",
+    "contact_list": ["contact list", "phone", "email", "sales rep", "sales representative", "territory manager"],
+    "correspondence": ["dear", "regards,", "sincerely", "rfi", "request for information", "change order", "memo",
                        "letter"],
+    "company_admin": ["certificate of insurance", "certificate of liability", "insurance", "w-9"],
 }
 # Strong filename cues (regex → (doc_type, bonus)). Filenames are the most reliable signal in a
 # human-organised library; a hit here outweighs a few body keywords.
 FILENAME_RULES = [
-    (r"\b(?:c-|i-)?tds\b|\bpds\b|data[ _-]?sheet|gcpat_|monokote_|_us_\d{4}", "product_data", 12),
-    (r"\bsds\b|\bmsds\b", "sds", 10),
+    (r"(?<![a-z0-9])(?:c-|i-)?tds(?![a-z0-9])|(?<![a-z0-9])pds(?![a-z0-9])|data[ _-]?sheet|gcpat[ _-]|monokote[ _-]|[ _-]us[ _-]\d{4}", "product_data", 16),
+    (r"(?<![a-z0-9])sds(?![a-z0-9])|(?<![a-z0-9])msds(?![a-z0-9])", "sds", 10),
     (r"primer|topcoat|top[ _-]coat", "primer_topcoat_list", 7),
     (r"tech(?:nical)?[ _-]?(?:release|bulletin|note)", "technical_bulletin", 8),
-    (r"estimating[ _-]?(?:guide|program|worksheet)|takeoff|take-off|budget[ _-]worksheet", "estimate", 7),
+    (r"estimating[ _-]?(?:guide|program|worksheet)|(?<![a-z])estimate(?![a-z])|takeoff|take-off|budget[ _-]worksheet", "estimate", 7),
     (r"labor[ _-]?matrix|rate[ _-]?sheet|ocip|ccip", "labor_pricing", 8),
     (r"bid[ _-]?letter|proposal|qualification", "proposal_bid_letter", 8),
     (r"guidelines|procedures|cheat[ _-]?sheet|quick[ _-]?reference|start[ _-]to[ _-]finish|estimating[ _-]a[ _-]job",
      "procedure", 7),
     (r"warranty", "warranty", 10),
     (r"contact[ _-]?list", "contact_list", 10),
-    (r"evaluation|\besr\b|icc|certifica", "listing_report", 7),
-    (r"^(?:bxuv[._-]?)?[dnpsxy]-?\d{3,4}[a-z]?(?:\s*\(dup\))?\.pdf$", "ul_design", 12),
-    (r"wide[ _-]?flange|angles?|channels?|tube[ _-]?steel|\bhss\b|pipes?|round[ _-]?bars?|wt[ _-]?columns?|beams?\.pdf|columns?\.pdf",
+    (r"evaluation[ _-]?report|report[ _-]?evaluation|(?<![a-z0-9])esr(?![a-z0-9])|(?<![a-z])icc(?![a-z])|certifica(?!te[ _-]of[ _-](?:liability[ _-])?insurance)", "listing_report", 7),
+    (r"^(?:bxuv[._-]?)?[dnpsxy]-?[5-9]\d{2}[a-z]?(?:\s*\(dup\))?\.pdf$", "ul_design", 12),
+    (r"wide[ _-]?flange|(?<![a-z])(?:single|double)[ _-]angles?|^angles?(?![a-z])|(?<![a-z])channels?(?![a-z])|tube[ _-]?steel|(?<![a-z0-9])hss(?![a-z0-9])|(?<![a-z])pipes?(?![a-z])|round[ _-]?bars?|wt[ _-]?columns?|^(?:wide[ _-]?flange[ _-])?(?:beams?|columns?)\.pdf$",
      "shape_table", 8),
     (r"spray[ _-]?(?:chart|report)|shop[ _-]?print|color[ _-]?up", "spray_chart", 8),
     (r"shop[ _-]?drawing", "shop_drawing", 8),
     (r"application[ _-]?(?:guide|manual)|installation[ _-]?manual", "application_guide", 8),
-    (r"leed|voc|chpd|hpd", "sustainability_compliance", 7),
+    (r"(?<![a-z])(?:leed|voc|chpd|hpd)(?![a-z])", "sustainability_compliance", 7),
+    (r"certificate[ _-]of[ _-](?:liability[ _-])?insurance|(?<![a-z])coi(?![a-z])", "company_admin", 10),
     (r"sig(?:nificant)?[ _-]?changes|ibc|nfca|\b70[34]\.", "code_reference", 8),
     (r"awarded[ _-]jobs|task[ _-]tracker|company[ _-]info", "company_admin", 10),
 ]
 FILENAME_RULES = [(re.compile(rx, re.IGNORECASE), dt, bonus) for rx, dt, bonus in FILENAME_RULES]
 
 RATING_RE = re.compile(
-    r"(?<![\w/])(?P<r>\d(?:\s*-\s*\d/\d|\s+\d/\d)?|\d/\d|\d\.5)\s*-?\s*(?:hr|hrs|hour|hours)\b", re.IGNORECASE
-)
-UL_STRICT_RE = re.compile(
-    r"(?:BXUV\s*\.?\s*|(?:UL\s+)?design\s*(?:no\.?|number|#)?\s*:?\s*)(?P<d>[A-Z]{1,3}-?\d{3,4}[A-Z]?)\b",
+    r"(?<!(?:dry|ure|oat|dle|ime|hin|mum|ght|per|ery)\s)(?<![\w/])(?P<r>[0-4](?:\s?-\s?\d/\d{1,2}|\s\d/\d{1,2})?|\d/\d{1,2}|[0-4]\.5)"
+    r"(?:\s?-)?\s?(?:hr|hrs|hour|hours)\b(?!\s?(?:shift|day|lunch|notice|parking|cure|dry))",
     re.IGNORECASE,
 )
-UL_LOOSE_RE = re.compile(r"(?<![A-Za-z0-9/.-])(?P<d>[DNPSXY]-?\d{3,4})(?![A-Za-z0-9.-])")
-INTERTEK_RE = re.compile(r"\b(?:CC|FP|IF|WH)\s*/\s*(?:IF|FP|CC)?\s*\d{2,4}\s*-\s*\d{1,3}\b|\bWHI[- ]?\d{3,5}\b", re.IGNORECASE)
-YEAR_RE = re.compile(r"(?<![\d.-])(19[5-9]\d|20[0-4]\d)(?![\d.-])(?!\s*(?:psi|psf|pcf|°|deg|lb|lbs|kg|sf|sq|bd|ft|mils?|gal|cfm|rpm))", re.IGNORECASE)
+UL_STRICT_RE = re.compile(
+    r"(?:BXUV\s?(?:\.\s?)?|(?:UL\s)?design\s?(?:(?:no\.?|number|#)\s?)?(?::\s?)?)(?P<d>[A-Z]{1,3}-?\d{3,4}[A-Z]?)\b",
+    re.IGNORECASE,
+)
+UL_LOOSE_RE = re.compile(r"(?<![A-Za-z0-9/.\-–—])(?P<d>[DNPSXY]-?[5-9]\d{2})(?![A-Za-z0-9.-])")
+INTERTEK_RE = re.compile(r"\b(?:CC|FP|IF|WH)\s?/\s?(?:(?:IF|FP|CC)\s?)?\d{2,4}\s?-\s?\d{1,3}\b|\bWHI[- ]?\d{3,5}\b", re.IGNORECASE)
+YEAR_RE = re.compile(r"(?<![A-Za-z\d.-])(19[5-9]\d|20[0-4]\d)(?![\d.-])(?!\s?(?:psi|psf|pcf|°|deg|lb|lbs|kg|sf|sq|bd|ft|mils?|gal|cfm|rpm|f\b|cu\b|board|units|bags|hours))", re.IGNORECASE)
 DATE_RE = re.compile(
     r"\b(\d{1,2}[/-]\d{1,2}[/-](?:19|20)?\d{2})\b|\b((?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+\d{1,2},?\s+(?:19|20)\d{2}|(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+(?:19|20)\d{2})\b",
     re.IGNORECASE,
 )
 MEMBER_RE = re.compile(
     r"(?<![A-Z0-9])(W\d{1,2}X\d{1,3}|HP\d{1,2}X\d{1,3}|HSS\d+(?:\.\d+)?X\d+(?:\.\d+)?(?:X\d+/\d+)?|WT\d{1,2}X\d{1,3}|"
-    r"C\d{1,2}X\d{1,2}(?:\.\d)?|MC\d{1,2}X\d{1,3}|L\d(?:-\d/\d)?X\d(?:-\d/\d)?X\d/\d{1,2}|PIPE\s*\d+|"
+    r"C\d{1,2}X\d{1,2}(?:\.\d)?|MC\d{1,2}X\d{1,3}(?:\.\d)?|L\d(?:-\d/\d)?X\d(?:-\d/\d)?X\d/\d{1,2}|PIPE\s*\d+|"
     r"\d{2}(?:K|LH|DLH)\d{1,2})(?![A-Z0-9])",
     re.IGNORECASE,
 )
@@ -183,8 +188,8 @@ FP_TYPE = {
                     "fire-rated board", "ceramic blanket"],
 }
 PROJECT_HINT_RE = re.compile(
-    r"\b(?:project|job)\s*(?:name|no\.?|number|#|title)\s*[:\-#]?\s*(?P<p>[A-Za-z0-9][^\n]{3,60})|"
-    r"\b(?:project|job)\s*:\s*(?P<q>[A-Za-z0-9][^\n]{3,60})",
+    r"\b(?:project|job)\s?(?:name|no\.?|number|#|title)\s?(?:[:\-#]\s?)?(?P<p>[A-Za-z0-9][^\n]{3,60})|"
+    r"\b(?:project|job)\s?:\s?(?P<q>[A-Za-z0-9][^\n]{3,60})",
     re.IGNORECASE,
 )
 
@@ -292,17 +297,20 @@ def find_candidate_mounts() -> list[str]:
 def same_volume(a: Path, b: Path) -> bool:
     if os.name == "nt":
         return os.path.splitdrive(str(a))[0].upper() == os.path.splitdrive(str(b))[0].upper()
+    q = b
+    while not q.exists() and q != q.parent:
+        q = q.parent
     try:
-        return a.stat().st_dev == (b if b.exists() else b.parent).stat().st_dev
+        return a.stat().st_dev == q.stat().st_dev
     except OSError:
-        return False
+        return True  # cannot tell → refuse
 
 
 def is_reparse_or_link(path: str) -> bool:
     try:
         st = os.lstat(path)
     except OSError:
-        return True
+        return False  # let the caller's stat produce the real error row
     if stat.S_ISLNK(st.st_mode):
         return True
     attrs = getattr(st, "st_file_attributes", 0)
@@ -323,8 +331,8 @@ def sha256_of(path: str, limit_mb: int) -> str | None:
                 if limit_mb and read >= limit_mb << 20:
                     return "partial:" + h.hexdigest()
         return h.hexdigest()
-    except OSError:
-        return None
+    except OSError as ex:
+        return f"ERROR:{type(ex).__name__}: {ex}"
 
 
 def read_pdf(path: str, e: Entry, max_pages: int, snippet_len: int) -> str:
@@ -340,7 +348,7 @@ def read_pdf(path: str, e: Entry, max_pages: int, snippet_len: int) -> str:
         meta = doc.metadata or {}
         e.title_meta = clean(meta.get("title") or "")[:200] or None
         e.author_meta = clean(meta.get("author") or "")[:120] or None
-        e.created_meta = (meta.get("creationDate") or None) or None
+        e.created_meta = clean(meta.get("creationDate") or "") or None
         text_pages = 0
         img_pages = 0
         parts: list[str] = []
@@ -368,6 +376,13 @@ def read_pdf(path: str, e: Entry, max_pages: int, snippet_len: int) -> str:
         return full
     finally:
         doc.close()
+        try:
+            w = pymupdf.TOOLS.mupdf_warnings()
+            if w and not e.error:
+                e.error = clean("mupdf: " + w.splitlines()[0][:200])
+            pymupdf.TOOLS.reset_mupdf_warnings()
+        except Exception:  # noqa: BLE001
+            pass
 
 
 def read_xlsx(path: str, e: Entry, snippet_len: int) -> str:
@@ -420,8 +435,10 @@ def _kw_hits(hay: str, kw: str) -> int:
 
 def classify(e: Entry, text: str) -> None:
     text = clean(text)
-    hay = re.sub(r"\s+", " ", (e.filename + " " + e.folder.replace(os.sep, " ") + " " + text).lower())
-    fname = e.filename.lower()
+    text = re.sub(r"[^\S\n]+", " ", text)
+    text = re.sub(r"\n[ \n]*\n", "\n", text)
+    fname = re.sub(r"_+", " ", e.filename.lower())
+    hay = re.sub(r"\s+", " ", (fname + " " + e.folder.replace(os.sep, " ") + " " + text).lower())
     scores: dict[str, int] = {}
     for dt, kws in DOC_TYPES.items():
         s = 0
@@ -431,8 +448,9 @@ def classify(e: Entry, text: str) -> None:
                 s += min(n, 5) + (3 if _kw_hits(fname, kw) else 0)
         if s:
             scores[dt] = s
+    drawing_like = bool(scores.get("structural_drawing") or scores.get("architectural_drawing"))
     for rx, dt, bonus in FILENAME_RULES:
-        if rx.search(fname):
+        if rx.search(fname) and not (dt == "ul_design" and drawing_like):
             scores[dt] = scores.get(dt, 0) + bonus
     e.doc_type_scores = dict(sorted(scores.items(), key=lambda kv: -kv[1])[:5])
     if scores:
@@ -458,16 +476,23 @@ def classify(e: Entry, text: str) -> None:
     if fscores:
         e.fireproofing_type = max(fscores.items(), key=lambda kv: kv[1])[0]
     scan = e.filename + "\n" + e.folder + "\n" + text
-    e.ratings = sorted({re.sub(r"\s+", "", m.group("r")).replace("-", "-") + " HR" for m in RATING_RE.finditer(scan)})[:8]
+    e.ratings = sorted({re.sub(r"\s*-\s*|\s+", "-", m.group("r")) + " HR" for m in RATING_RE.finditer(scan)})[:8]
     strict = {m.group("d").upper().replace("-", "") for m in UL_STRICT_RE.finditer(scan)}
-    loose = {m.group("d").upper().replace("-", "") for m in UL_LOOSE_RE.finditer(scan)} - strict
+    loose = set()
+    for m in UL_LOOSE_RE.finditer(scan):
+        ctx = scan[max(0, m.start() - 12) : m.start()].lower()
+        if any(k in ctx for k in ("astm", "ulc", "sheet", "type ")):
+            continue
+        loose.add(m.group("d").upper().replace("-", ""))
+    loose -= strict
     e.ul_designs = sorted(strict)[:30]
     e.ul_design_candidates = sorted(loose)[:30]
     e.other_listings = sorted({m.group(0).upper().replace(" ", "") for m in INTERTEK_RE.finditer(scan)})[:20]
     members = {m.group(1).upper().replace(" ", "") for m in MEMBER_RE.finditer(scan)}
     members |= {m.group(1).upper() for m in MEMBER_WORDS_RE.finditer(scan)}
     e.member_terms = sorted(members)[:25]
-    e.years_seen = sorted({int(y) for y in YEAR_RE.findall(scan)})[:12]
+    this_year = datetime.now().year + 1
+    e.years_seen = sorted({int(y) for y in YEAR_RE.findall(scan) if int(y) <= this_year})[:12]
     e.dates_seen = sorted({(a or b) for a, b in DATE_RE.findall(scan)})[:8]
     m = PROJECT_HINT_RE.search(scan)
     if m:
@@ -488,14 +513,21 @@ class Catalog:
         self.excludes = [x.lower() for x in (excludes or [])]
         self.media: dict[str, dict[str, int]] = {}  # top folder -> {files, bytes, image, video, audio}
         self.excluded_dirs: list[str] = []
+        self.dirs_skipped = 0
         out.mkdir(parents=True, exist_ok=True)
         # probe every output up front so a locked file fails fast, not after hours
+        stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
         for name in ("catalog.jsonl", "catalog.csv", "catalog.sqlite", "summary.md", "summary_paths.md", "run.log"):
             p = out / name
-            if p.exists():
-                p.rename(p.with_name(name + ".prev"))
-            with p.open("a", encoding="utf-8"):
-                pass
+            try:
+                if p.exists() and p.stat().st_size > 0:
+                    os.replace(p, p.with_name(f"{name}.{stamp}.prev"))
+                with p.open("a", encoding="utf-8"):
+                    pass
+            except OSError as ex:
+                raise SystemExit(
+                    f"cannot write {p} ({ex}). Close it if it is open in Excel or DB Browser and re-run."
+                ) from None
         self._jsonl = (out / "catalog.jsonl").open("w", encoding="utf-8", errors="replace")
         self._log = (out / "run.log").open("w", encoding="utf-8", errors="replace")
         self.log(f"start root={root}")
@@ -522,8 +554,7 @@ class Catalog:
     def add(self, e: Entry) -> None:
         self.entries.append(e)
         self._jsonl.write(json.dumps(asdict(e), ensure_ascii=False) + "\n")
-        if len(self.entries) % 25 == 0:
-            self._jsonl.flush()
+        self._jsonl.flush()
 
     def close(self) -> None:
         self._jsonl.close()
@@ -562,7 +593,12 @@ def inventory(root: Path, cat: Catalog, max_files: int | None, hash_limit_mb: in
         for dirpath, dirnames, filenames in os.walk(walk_root, onerror=on_err):
             keep = []
             for d in dirnames:
-                if d in SKIP_NAMES or d.startswith("."):
+                if d in SKIP_NAMES:
+                    continue
+                if d.startswith("."):
+                    cat.dirs_skipped += 1
+                    cat.add(_entry_for_error(root, strip(os.path.join(dirpath, d)),
+                                             "SKIPPED hidden directory (not walked)", "directory"))
                     continue
                 if cat.excluded(d):
                     cat.excluded_dirs.append(strip(os.path.join(dirpath, d)))
@@ -608,7 +644,7 @@ def _one_file(root: Path, cat: Catalog, full: str, shown: str, hash_limit_mb: in
     except ValueError:
         rel = p
     folder = "" if rel.parent == Path(".") else str(rel.parent)
-    ext = p.suffix.lower()
+    ext = clean(p.suffix.lower())
     fclass = ("pdf" if ext in PDF_EXT else "excel" if ext in XLS_EXT else "word" if ext in DOC_EXT
               else "image" if ext in IMG_EXT else "video" if ext in VIDEO_EXT else "audio" if ext in AUDIO_EXT
               else "archive" if ext in ARCHIVE_EXT else "cad" if ext in CAD_EXT
@@ -626,6 +662,9 @@ def _one_file(root: Path, cat: Catalog, full: str, shown: str, hash_limit_mb: in
     )
     if not mt:
         e.error = f"bad mtime {st.st_mtime}"
+    if e.sha256 and e.sha256.startswith("ERROR:"):
+        e.error = clean(e.sha256[6:])[:300]
+        e.sha256 = None
     if is_media:
         cat.add(e)  # listed by name only; never opened
         return
@@ -646,7 +685,7 @@ def _one_file(root: Path, cat: Catalog, full: str, shown: str, hash_limit_mb: in
                 e.snippet = clean(re.sub(r"\s+", " ", text)[:snippet_len])
                 e.text_extracted = bool(text.strip())
         except Exception as ex:  # noqa: BLE001 - record and continue
-            e.error = f"{type(ex).__name__}: {ex}"[:300]
+            e.error = clean(f"{type(ex).__name__}: {ex}"[:300])
     elif st.st_size == 0:
         e.error = "zero-byte file"
     classify(e, text)
@@ -654,8 +693,40 @@ def _one_file(root: Path, cat: Catalog, full: str, shown: str, hash_limit_mb: in
 
 
 # ---------------------------------------------------------------------------------------------
+def _rows(entries: list[Entry]) -> list[dict]:
+    out = []
+    for e in entries:
+        d = asdict(e)
+        for k, v in d.items():
+            if isinstance(v, str):
+                d[k] = clean(v)
+        out.append(d)
+    return out
+
+
 def write_outputs(cat: Catalog) -> None:
-    out, root, entries = cat.out, cat.root, cat.entries
+    """summary first, then csv, sqlite, paths; each output independent; Ctrl-C ignored meanwhile."""
+    import signal
+
+    prev_handler = None
+    try:
+        prev_handler = signal.signal(signal.SIGINT, signal.SIG_IGN)
+    except (ValueError, OSError):
+        pass
+    try:
+        _write_summaries(cat)
+        for fn in (_write_csv, _write_sqlite):
+            try:
+                fn(cat)
+            except Exception as ex:  # noqa: BLE001
+                cat.log(f"output step {fn.__name__} failed: {type(ex).__name__}: {ex}")
+    finally:
+        if prev_handler is not None:
+            signal.signal(signal.SIGINT, prev_handler)
+
+
+def _write_csv(cat: Catalog) -> None:
+    out, entries = cat.out, cat.entries
     cols = ["rel_path", "filename", "ext", "file_class", "size_bytes", "mtime_iso", "pages", "has_text_layer",
             "likely_scanned", "doc_type", "doc_type_confidence", "manufacturer", "fireproofing_type", "ratings",
             "ul_designs", "ul_design_candidates", "other_listings", "years_seen", "project_hint", "title_meta",
@@ -664,11 +735,16 @@ def write_outputs(cat: Catalog) -> None:
     with tmp.open("w", newline="", encoding="utf-8-sig", errors="replace") as f:
         w = csv.writer(f)
         w.writerow(cols)
-        for e in entries:
-            d = asdict(e)
+        for d in _rows(entries):
             w.writerow([("; ".join(map(str, d[c])) if isinstance(d[c], list) else d[c]) for c in cols])
-    os.replace(tmp, out / "catalog.csv")
+    try:
+        os.replace(tmp, out / "catalog.csv")
+    except OSError:
+        os.replace(tmp, out / f"catalog-{datetime.now():%Y%m%d-%H%M%S}.csv")
 
+
+def _write_sqlite(cat: Catalog) -> None:
+    out, entries = cat.out, cat.entries
     db_tmp = out / "catalog.sqlite.tmp"
     if db_tmp.exists():
         db_tmp.unlink()
@@ -677,12 +753,19 @@ def write_outputs(cat: Catalog) -> None:
     con.execute("CREATE TABLE files (" + ", ".join(f"{f} TEXT" for f in fields) + ")")
     con.executemany(
         f"INSERT INTO files VALUES ({','.join('?' * len(fields))})",
-        [tuple(json.dumps(v, ensure_ascii=False) if isinstance(v, (list, dict)) else v for v in asdict(e).values())
-         for e in entries],
+        [tuple(json.dumps(v, ensure_ascii=False) if isinstance(v, (list, dict)) else v for v in d.values())
+         for d in _rows(entries)],
     )
     con.commit()
     con.close()
-    os.replace(db_tmp, out / "catalog.sqlite")
+    try:
+        os.replace(db_tmp, out / "catalog.sqlite")
+    except OSError:
+        os.replace(db_tmp, out / f"catalog-{datetime.now():%Y%m%d-%H%M%S}.sqlite")
+
+
+def _write_summaries(cat: Catalog) -> None:
+    out, root, entries = cat.out, cat.root, cat.entries
 
     def count(key):
         c: dict[str, int] = {}
@@ -693,7 +776,9 @@ def write_outputs(cat: Catalog) -> None:
 
     files = [e for e in entries if e.file_class != "directory"]
     status = "PARTIAL RUN (interrupted)" if cat.interrupted else "complete"
-    volume = root.name or str(root)
+    parts = Path(root).parts
+    volume = Path(root).anchor if os.name == "nt" else (
+        parts[2] if len(parts) > 2 and parts[1] in ("Volumes", "media", "mnt") else "(library)")
     lines = [f"# LaCie library inventory — {datetime.now():%Y-%m-%d %H:%M} — {status}", "",
              f"Volume: `{volume}`  Files: {len(files)}  Total size: {sum(e.size_bytes for e in files) / 1e9:.2f} GB  "
              f"Unreadable directories: {cat.dirs_failed}", "",
@@ -708,8 +793,9 @@ def write_outputs(cat: Catalog) -> None:
              "## Scanned PDFs (no text layer) — OCR candidates", f"- {sum(1 for e in files if e.likely_scanned)}", "",
              "## Media (photos/video/audio) — counted only, never opened",
              f"- files: {sum(m['files'] for m in cat.media.values())}  size: {sum(m['bytes'] for m in cat.media.values()) / 1e9:.1f} GB  "
-             f"in {len(cat.media)} top-level folders" if cat.media else "- none counted (media mode: list)", "",
+             f"in {len(cat.media)} top-level folders" if cat.media else f"- none counted (media mode: {cat.media_mode})", "",
              "## Excluded folders", f"- {len(cat.excluded_dirs)}", "",
+             "## Hidden (dot) directories not walked", f"- {cat.dirs_skipped}", "",
              "## Rows with errors", f"- {sum(1 for e in entries if e.error)} (see summary_paths.md)", "",
              "## Unclassified", f"- {sum(1 for e in files if e.doc_type == 'unclassified')} (see summary_paths.md)", ""]
     (out / "summary.md").write_text("\n".join(lines), encoding="utf-8", errors="replace")
@@ -724,6 +810,32 @@ def write_outputs(cat: Catalog) -> None:
     (out / "summary_paths.md").write_text("\n".join(plines), encoding="utf-8", errors="replace")
 
 
+def rebuild_from_jsonl(path: Path) -> int:
+    """Turn a catalog.jsonl (complete or cut off mid-run) into csv/sqlite/summaries next to it."""
+    entries: list[Entry] = []
+    bad = 0
+    for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+        try:
+            d = json.loads(line)
+            entries.append(Entry(**{k: v for k, v in d.items() if k in Entry.__dataclass_fields__}))
+        except (json.JSONDecodeError, TypeError):
+            bad += 1
+    if not entries:
+        print("no rows could be read", file=sys.stderr)
+        return 2
+    out = path.parent
+    cat = Catalog.__new__(Catalog)
+    cat.out, cat.root, cat.entries = out, Path("(rebuilt from jsonl)"), entries
+    cat.interrupted, cat.dirs_failed, cat.dirs_skipped = True, 0, 0
+    cat.media_mode, cat.excludes, cat.media, cat.excluded_dirs = "count", [], {}, []
+    cat._log = (out / "run.log").open("a", encoding="utf-8", errors="replace")
+    cat.log(f"rebuild from {path.name}: {len(entries)} rows, {bad} unreadable lines")
+    write_outputs(cat)
+    cat._log.close()
+    print(f"rebuilt outputs from {len(entries)} rows ({bad} unreadable lines) in {out}", file=sys.stderr)
+    return 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("root", nargs="?", help="library root (the LaCie drive or a folder on it)")
@@ -736,6 +848,8 @@ def main() -> int:
     ap.add_argument("--snippet", type=int, default=600, help="max chars of text snippet stored per file")
     ap.add_argument("--dry-run", action="store_true", help="walk and stat only; do not open file contents")
     ap.add_argument("--allow-same-volume", action="store_true", help="(not recommended) permit --out on the root's volume")
+    ap.add_argument("--from-jsonl", metavar="CATALOG.JSONL",
+                    help="rebuild csv/sqlite/summaries from a (possibly partial) catalog.jsonl and exit")
     ap.add_argument("--media", choices=["count", "list"], default="count",
                     help="photos/video/audio: 'count' per folder (default) or 'list' every file by name (never opened)")
     ap.add_argument("--exclude", action="append", default=[], metavar="PATTERN",
@@ -745,6 +859,8 @@ def main() -> int:
         for c in find_candidate_mounts():
             print(c)
         return 0
+    if a.from_jsonl:
+        return rebuild_from_jsonl(Path(a.from_jsonl))
     if not a.root:
         ap.error("root is required (or use --find)")
     root_s = a.root.strip().strip('"').strip("'")
@@ -756,7 +872,21 @@ def main() -> int:
         print(f"root is not a directory: {root}", file=sys.stderr)
         return 2
     rn, on = os.path.normcase(str(root)), os.path.normcase(str(out))
-    if on == rn or on.startswith(rn.rstrip("\\/") + os.sep):
+    inside = on == rn or on.startswith(rn.rstrip("\\/") + os.sep)
+    if not inside:
+        q = out
+        try:
+            rst = root.stat()
+            while True:
+                if q.exists() and os.path.samestat(q.stat(), rst):
+                    inside = True
+                    break
+                if q == q.parent:
+                    break
+                q = q.parent
+        except OSError:
+            inside = True
+    if inside:
         print(f"refusing to write output inside the library root: {out}", file=sys.stderr)
         return 2
     if same_volume(root, out) and not a.allow_same_volume:

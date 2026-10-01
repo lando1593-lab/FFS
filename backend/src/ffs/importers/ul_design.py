@@ -50,19 +50,29 @@ _MFR = re.compile(
     r"^(?P<name>[A-Z][A-Z0-9 ,&'./-]{2,}?(?:\s+(?:L L C|LLC|INC|CORP|CO|LTD|LLP|S A|GMBH|AG|PLC))?)\s+—\s+(?P<text>.+)$"
 )  # noqa: E501
 _EQUATION = re.compile(
-    r"R\s*\n\s*h\s*=\s*\n\s*(?P<a>\d+(?:\.\d+)?)\s*\(W/D\)\s*\+\s*(?P<b>\d+(?:\.\d+)?)"
+    r"R\s*\n\s*h\s*=\s*\n\s*(?P<a>\d+(?:\.\d+)?)\s*\((?P<f>W/D|A/P)\)\s*\+\s*(?P<b>\d+(?:\.\d+)?)"
 )
-_WD_RANGE = re.compile(r"W/D\s*=\s*(?P<lo>\d+(?:\.\d+)?)\s*(?:to|-|–)\s*(?P<hi>\d+(?:\.\d+)?)")
+_WD_RANGE = re.compile(
+    r"(?P<f>W/D|A/P)\s*(?:=|range of|ratio of|of)\s*(?P<lo>\d+(?:\.\d+)?)\s*(?:to|-|–)\s*(?P<hi>\d+(?:\.\d+)?)",
+    re.IGNORECASE,
+)
 _H_RANGE = re.compile(
-    r"thickness in the range\s*(?P<lo>\d+(?:\.\d+)?)\s*-\s*(?P<hi>\d+(?:\.\d+)?)\s*in"
+    r"in the range(?: of)?\s*(?P<lo>\d+(?:\.\d+)?(?:-\d+/\d+)?|\d+/\d+)\s*(?:to|-|–)\s*"
+    r"(?P<hi>\d+(?:\.\d+)?(?:-\d+/\d+)?|\d+/\d+)\s*in",
+    re.IGNORECASE,
+)
+_R_UNITS = re.compile(
+    r"R\s*=\s*Fire resistance rating(?: period)?\s*(?:in)?\s*(?P<u>minutes|hours|min|h)\b",
+    re.IGNORECASE,
 )
 _RATING_COL = re.compile(r"^(?P<r>\d(?:-\d/\d{1,2})?|\d/\d|1/2)\s*Hr\.?$")
 _RATING_CELL = re.compile(
     r"^(?P<a>\d(?:-\d/\d{1,2})?|\d/\d)(?:\s*(?:or|,)\s*(?P<b>\d(?:-\d/\d{1,2})?|\d/\d))?$"
 )
 _THK_CELL = re.compile(
-    r"^(?P<v>\d+(?:-\d+/\d+)?|\d+/\d+|—|-|–|\d+\.\d+)(?P<note>\s*\(\s*[\d/ -]+\)|\*+)?$"
+    r"^(?P<v>\d+(?:-\d+/\d+)?|\d+/\d+|—|-|–|\d+\.\d+)(?P<note>\s*\(\s*[\d/ *-]+\)|[*+#]+)?$"
 )
+_NOTE_LINE = re.compile(r"^\(\s*[\d/ -]+\*{0,3}\)$")  # e.g. "(1-1/2**)" printed under a cell
 _FLOAT = re.compile(r"^\d+\.\d+$")
 _SEE_TABLE_BELOW = re.compile(r"table below", re.IGNORECASE)
 _REPRO = re.compile(r"UL permits the reproduction.*", re.DOTALL)
@@ -114,6 +124,8 @@ class Equation:
     wd_range: tuple[float, float] | None
     h_range_in: tuple[float, float] | None
     as_printed: str
+    factor: str = "W/D"
+    r_units: str | None = None  # "hours" | "minutes" as stated in the design
 
 
 @dataclass
@@ -252,6 +264,10 @@ def _parse_rating_rows_table(
     tbl = ThicknessTable(item_no, "rating_rows", headers, rating_fields=k, value_columns=value_cols)
     m = len(value_cols)
     while i + k + m <= len(lines):
+        if tbl.rows and _NOTE_LINE.match(lines[i].strip()):
+            tbl.rows[-1].note = ((tbl.rows[-1].note or "") + " " + lines[i].strip()).strip()
+            i += 1
+            continue
         rat = [lines[i + t].strip() for t in range(k)]
         vals = [lines[i + k + t].strip() for t in range(m)]
         if not all(_RATING_CELL.match(r) for r in rat) or not all(_THK_CELL.match(v) for v in vals):
@@ -260,7 +276,7 @@ def _parse_rating_rows_table(
             TableRow(
                 cells=rat + vals,
                 values_in=[frac_in(_THK_CELL.match(v).group("v")) for v in vals],
-                note=" ".join(v for v in vals if "*" in v or "(" in v) or None,
+                note=" ".join(v for v in vals if re.search(r"[*+#(]", v)) or None,
             )
         )
         i += k + m
@@ -430,6 +446,18 @@ def parse_design_text(text: str, source_file: str | None = None) -> DesignRecord
                     vcols.append(buf)
                     buf = ""
                 j += 1
+            subs = []
+            for a_i in range(len(hdr) - 1):
+                nxt = hdr[a_i + 1]
+                if (
+                    hdr[a_i].strip().lower() == "on"
+                    and nxt
+                    and not re.search(r"Ratings?\s*Hr", nxt)
+                ):
+                    subs.append("on " + nxt.strip())
+            if subs and vcols:
+                parent = vcols[-1]
+                vcols = vcols[:-1] + [f"{parent} {sname}" for sname in subs]
             if k and vcols and j < len(lines):
                 tbl, j2 = _parse_rating_rows_table(lines, j, k, vcols, cur.no if cur else None, hdr)
                 if tbl.rows:
@@ -458,10 +486,21 @@ def parse_design_text(text: str, source_file: str | None = None) -> DesignRecord
     for em in _EQUATION.finditer(core):
         before = core[max(0, em.start() - 350) : em.start()]
         after = core[em.end() : em.end() + 400]
-        wd_before = list(_WD_RANGE.finditer(before))
+        factor = em.group("f").upper()
+        imm = _WD_RANGE.search(after[:120])  # "(for column W/D range of 0.33 to 2.51)" right after
+        wd_before = [m for m in _WD_RANGE.finditer(before) if m.group("f").upper() == factor]
+        if imm and imm.group("f").upper() == factor:
+            wd = imm
+        elif wd_before:
+            wd = wd_before[-1]
+        else:
+            wd = _WD_RANGE.search(after)
         hr_before = list(_H_RANGE.finditer(before))
-        wd = wd_before[-1] if wd_before else _WD_RANGE.search(after)
         hr = hr_before[-1] if hr_before else _H_RANGE.search(after)
+        ru = _R_UNITS.search(after) or _R_UNITS.search(before)
+        r_units = None
+        if ru:
+            r_units = "minutes" if ru.group("u").lower().startswith("min") else "hours"
         owner = None
         for it in items:
             if it.text and em.group(0).split("\n")[0] in it.text:
@@ -469,12 +508,14 @@ def parse_design_text(text: str, source_file: str | None = None) -> DesignRecord
         equations.append(
             Equation(
                 owner,
-                "h = R / (a*(W/D) + b)",
+                f"h = R / (a*({factor}) + b)",
                 float(em.group("a")),
                 float(em.group("b")),
-                (float(wd.group("lo")), float(wd.group("hi"))) if wd else None,
-                (float(hr.group("lo")), float(hr.group("hi"))) if hr else None,
+                (frac_in(wd.group("lo")), frac_in(wd.group("hi"))) if wd else None,
+                (frac_in(hr.group("lo")), frac_in(hr.group("hi"))) if hr else None,
                 re.sub(r"\s+", " ", em.group(0)),
+                factor=factor,
+                r_units=r_units,
             )
         )
     sfrm_mfrs = [mf for it in items if it.is_sfrm for mf in it.manufacturers]

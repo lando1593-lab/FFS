@@ -204,3 +204,66 @@ def test_media_counted_not_opened_and_exclude(tmp_path):
     photo = next(e for e in cat2.entries if e.filename == "site photo.jpg")
     assert photo.sha256 is None and photo.doc_type == "media" and photo.snippet == ""
     assert len(cat2.excluded_dirs) == 1
+
+
+def test_second_review_regressions(tmp_path, monkeypatch, capsys):
+    root = tmp_path / "lib"
+    (root / ".Old Projects").mkdir(parents=True)
+    (root / ".Old Projects" / "spec.txt").write_text("x")
+    (root / "visible.txt").write_text(
+        "Dry Time 4 Hours. Rated for 2 hours. Straight Time (8 Hours). ASTM D2240 and ASTM E1966. "
+        "see sheet S-201. W/D 1.2. Project No: 12345 Hospital\n"
+    )
+    (root / "foo_C-TDS_10-19.pdf").write_bytes(b"%PDF-1.4 garbage")
+    (root / "S-201.pdf").write_bytes(b"%PDF-1.4 garbage")
+    out = tmp_path / "out"
+    cat = inv.Catalog(out, root)
+    try:
+        inv.inventory(root, cat, None, 16, 4, 600, False)
+    finally:
+        cat.close()
+    inv.write_outputs(cat)
+    rows = {e.rel_path: e for e in cat.entries}
+    # hidden directory recorded, not silently dropped
+    assert cat.dirs_skipped == 1 and any("SKIPPED hidden" in (e.error or "") for e in cat.entries)
+    v = rows["visible.txt"]
+    assert "2 HR" in v.ratings and "4 HR" not in v.ratings and "8 HR" not in v.ratings
+    assert "D2240" not in v.ul_design_candidates and "S201" not in v.ul_design_candidates
+    assert 1966 not in v.years_seen
+    assert rows["foo_C-TDS_10-19.pdf"].doc_type == "product_data"
+    assert rows["S-201.pdf"].doc_type != "ul_design"
+    # second run: previous non-empty outputs rotate to timestamped .prev, nothing overwritten
+    cat2 = inv.Catalog(out, root)
+    cat2.close()
+    assert any(p.name.endswith(".prev") and p.stat().st_size > 0 for p in out.iterdir())
+    # rebuild from a truncated jsonl
+    jl = out / "catalog.jsonl"
+    good = (tmp_path / "out").parent / "out"
+    text = (
+        out
+        / next(
+            p.name
+            for p in out.iterdir()
+            if p.name.startswith("catalog.jsonl.") and p.name.endswith(".prev")
+        )
+    ).read_text(encoding="utf-8")
+    partial = tmp_path / "partial"
+    partial.mkdir()
+    (partial / "catalog.jsonl").write_text(text + '{"truncated": tru', encoding="utf-8")
+    assert inv.rebuild_from_jsonl(partial / "catalog.jsonl") == 0
+    assert (partial / "summary.md").exists() and (partial / "catalog.csv").exists()
+    # same_volume climbs to an existing ancestor; a two-level nonexistent --out on the same fs is refused
+    monkeypatch.setattr(
+        sys, "argv", ["inventory.py", str(root), "--out", str(tmp_path / "a" / "b")]
+    )
+    assert inv.main() == 2
+    assert "same volume" in capsys.readouterr().err
+
+
+def test_catastrophic_whitespace_is_fast(tmp_path):
+    import time
+
+    e = inv.Entry("p", "p", "", "p.txt", ".txt", 1, "", None, "text")
+    t0 = time.time()
+    inv.classify(e, "design" + " " * 200_000 + "\n" + "project" + " " * 100_000)
+    assert time.time() - t0 < 2.0
