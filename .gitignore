@@ -20,6 +20,9 @@ data/
 *.sqlite
 *.db
 tools/lacie_inventory/out/
+backend/out/
+out/
+out_spray/
 golden/**/source/
 !golden/synthetic/
 

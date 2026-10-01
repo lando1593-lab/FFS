@@ -14,7 +14,8 @@ powershell -ExecutionPolicy Bypass -File tools\lacie_inventory\run.ps1
 powershell -ExecutionPolicy Bypass -File tools\lacie_inventory\run.ps1 -Root "E:\"
 ```
 Both install `uv` if missing, set up the environment, run the inventory, and write to
-`data/lacie_catalog/`. Then commit or send `data/lacie_catalog/summary.md`.
+`data/lacie_catalog/`. Then send `data/lacie_catalog/summary.md`. Type drive letters as `D:\`
+without quotes; the output folder must be on a different drive than the library (enforced).
 
 ## Manual path
 
@@ -28,10 +29,21 @@ Windows: `uv run python ..\tools\lacie_inventory\inventory.py E:\ --out ..\data\
 Start with `--dry-run --max-files 200` to confirm the path, then run the full pass (it reads the
 first 4 pages of every PDF, so expect roughly 1–3 files/second on a USB drive).
 
-Outputs (in `--out`, which is git-ignored under `data/`):
-- `summary.md` — counts by document type, manufacturer, decade, folder; scanned PDFs; errors; unclassified list.
-  **Share this file** (or commit it to `docs/research/lacie-summary.md`) — it contains no document text.
-- `catalog.csv`, `catalog.jsonl`, `catalog.sqlite` — per-file rows with a ≤600-char snippet. Keep local.
+Outputs (in `--out`, default `data/lacie_catalog/`, git-ignored):
+- `summary.md` — counts only (file classes, document types, manufacturers, decades, scanned PDFs,
+  error and unclassified counts). **Share this one.** It names the volume but no files.
+- `summary_paths.md` — top folders, error paths, unclassified paths. Contains folder and file
+  names (often client/project names). Keep local unless you choose to share it.
+- `catalog.csv` (Excel-friendly), `catalog.jsonl` (appended live during the run), `catalog.sqlite`
+  — per-file rows with a ≤600-char text snippet. Keep local.
+- `run.log` — start/stop, progress, whether the run was interrupted.
+
+Ctrl-C writes a partial catalog marked PARTIAL. Re-running renames the previous outputs to
+`*.prev` first.
+
+What "read only" means precisely: the tool opens files for reading only and never creates,
+renames, moves, or deletes anything on the drive. Reading can still bump "last accessed"
+timestamps on some filesystems; file contents, names, and modified dates are untouched.
 
 Classification is heuristic (keyword scoring with confidence). Everything is tagged
 `historical`. Nothing in the catalog may become a code/product rule without a human promoting it

@@ -17,7 +17,7 @@ Set-Location (Join-Path $Repo "backend")
 uv sync --extra dev --extra inventory
 
 if ($Root -eq "") {
-  $vols = Get-Volume | Where-Object { $_.DriveLetter -and $_.FileSystemLabel -match "lacie" }
+  $vols = @(Get-Volume | Where-Object { $_.DriveLetter -and $_.FileSystemLabel -match "lac[ie]+y?" })
   if ($vols.Count -eq 1) { $Root = "$($vols[0].DriveLetter):\" }
   else {
     Write-Host "Could not pick the LaCie volume automatically. Volumes:"
@@ -26,9 +26,11 @@ if ($Root -eq "") {
     exit 2
   }
 }
+if ($Root -match '^[A-Za-z]:$') { $Root = "$Root\" }
+if ($Root.Length -gt 3) { $Root = $Root.TrimEnd('\') }
 Write-Host "Library root: $Root  (read-only)"
 Write-Host "Output:       $Out"
 uv run python (Join-Path $Here "inventory.py") $Root --out $Out
 Write-Host ""
-Write-Host "Done. Share: $Out\summary.md   (counts only, no document text)"
-Write-Host "Keep local: catalog.csv, catalog.jsonl, catalog.sqlite in $Out"
+Write-Host "Share:      $Out\summary.md   (counts only)"
+Write-Host "Keep local: summary_paths.md, catalog.csv, catalog.jsonl, catalog.sqlite in $Out"
