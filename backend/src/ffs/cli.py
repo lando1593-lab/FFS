@@ -285,6 +285,39 @@ def fetch_sources(
     )
 
 
+@app.command("crawl-sources")
+def crawl_sources(
+    seeds: list[str],
+    registry: Path = typer.Option(None, help="registry JSON to update (default: built-in)"),
+    out: Path = typer.Option(Path("../data/reference_library/crawl_report.json")),
+    max_pages: int = typer.Option(200),
+    max_depth: int = typer.Option(3),
+    delay: float = typer.Option(1.0, help="seconds between page requests"),
+    write_registry: bool = typer.Option(True, help="append discovered documents to the registry"),
+) -> None:
+    """Discover public documents (PDF/XLSX/DOCX) on allowed manufacturer/listing sites."""
+    from ffs.sources.crawl import crawl, merge_into_registry, write_report
+    from ffs.sources.fetch import REGISTRY_PATH, load_registry
+
+    reg_path = registry or REGISTRY_PATH
+    reg = load_registry(reg_path)
+    rep = crawl(
+        seeds, reg["allowed_hosts"], max_pages=max_pages, max_depth=max_depth, delay_s=delay
+    )
+    out.parent.mkdir(parents=True, exist_ok=True)
+    write_report(rep, out)
+    typer.echo(
+        f"visited {rep.pages_visited} pages; {len(rep.documents)} documents; "
+        f"{len(rep.robots_blocked)} robots-blocked; off-allowlist hosts seen: {rep.skipped_hosts[:10]}"
+    )
+    for d in rep.documents[:60]:
+        typer.echo(f"  [{d.manufacturer_guess or '?':<16}] [{d.kind_guess or '?':<22}] {d.url}")
+    if write_registry:
+        n = merge_into_registry(rep, reg)
+        reg_path.write_text(json.dumps(reg, indent=1, ensure_ascii=False) + "\n", encoding="utf-8")
+        typer.echo(f"{n} new entries appended to {reg_path}; run `ffs fetch-sources` to download")
+
+
 @app.command()
 def synth(out_dir: Path = Path("golden/synthetic/gp0_simple_bay")) -> None:
     """Generate the synthetic golden sheet + truth.json."""
