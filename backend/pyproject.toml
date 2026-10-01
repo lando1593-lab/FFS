@@ -44,6 +44,7 @@ select = ["E", "F", "I", "UP", "B"]
 "tests/test_lacie_inventory.py" = ["E501"]
 "src/ffs/sources/fetch.py" = ["E501"]
 "src/ffs/sources/crawl.py" = ["E501"]
+"src/ffs/importers/isolatek_chart.py" = ["E501"]
 "tests/test_crawl_sources.py" = ["E501"]
 
 [tool.pytest.ini_options]

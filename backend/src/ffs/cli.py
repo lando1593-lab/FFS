@@ -318,6 +318,32 @@ def crawl_sources(
         typer.echo(f"{n} new entries appended to {reg_path}; run `ffs fetch-sources` to download")
 
 
+@app.command("import-isolatek-chart")
+def import_isolatek_chart(
+    pdfs: list[Path],
+    out: Path = typer.Option(Path("out_charts"), help="output directory"),
+) -> None:
+    """Parse Isolatek 'Designs & Thicknesses' chart PDFs into per-member thickness rows."""
+    from ffs.importers.isolatek_chart import parse_chart_pdf, write_chart
+
+    for pdf in pdfs:
+        rec = parse_chart_pdf(pdf)
+        p = write_chart(rec, out)
+        typer.echo(
+            f"{pdf.name}: design={rec.design} date={rec.chart_date} cols={rec.rating_columns} rows={len(rec.rows)}"
+            + (f"  xref: {rec.cross_reference}" if rec.cross_reference else "")
+        )
+        typer.echo(f"   condition: {rec.condition}")
+        typer.echo(f"   products: {rec.products}")
+        for r in rec.rows[:3]:
+            typer.echo(
+                f"   {r.member_label:<14} W/D={r.wd} {r.thickness_as_printed} sect={r.section}"
+            )
+        for n in rec.notes[:5]:
+            typer.secho(f"   ! {n}", fg="yellow")
+        typer.echo(f"   → {p}")
+
+
 @app.command()
 def synth(out_dir: Path = Path("golden/synthetic/gp0_simple_bay")) -> None:
     """Generate the synthetic golden sheet + truth.json."""
