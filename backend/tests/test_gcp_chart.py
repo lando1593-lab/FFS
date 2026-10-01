@@ -113,6 +113,7 @@ def test_two_group_beam_chart_rows_titles_and_generic_row(tmp_path):
     assert w6_lwc.thickness_in[3:] == [None, None] and w6_lwc.not_rated == [False] * 3 + [True] * 2
     other = rec.rows[4]
     assert other.member_label == "Other" and other.canonical is None and other.wd == 0.37
+    assert other.canonical_source is None
     assert rec.notes == []
     js = write_gcp_chart(rec, tmp_path / "out")
     assert js.exists() and (tmp_path / "out" / "D739.csv").read_text().count("\n") == 7
@@ -159,3 +160,28 @@ def test_real_d739_chart_if_present():
     assert (first.member_label, first.canonical, first.wd) == ("W4 x 13", "W4X13", 0.67)
     assert first.thickness_in == [0.5625, 0.875, 1.0, 1.4375, 2.25]
     assert all(r.wd is not None for r in rec.rows)
+
+
+def test_tube_canonical_is_derived_only_from_printed_size_and_wall():
+    from ffs.importers.gcp_chart import _tube_canonical
+
+    assert _tube_canonical("4 x 3", {"Wall Thickness": "1/4", "A/P": "0.232"}) == "HSS4X3X1/4"
+    assert _tube_canonical("5 x 5", {"Wall Thickness": "3/8"}) == "HSS5X5X3/8"
+    assert _tube_canonical("3.5 x 3.5", {"Wall Thickness": "5/16"}) == "HSS3.500X3.500X5/16"
+    assert _tube_canonical("Other", {"Wall Thickness": "Other", "A/P": "0.18"}) is None
+    assert _tube_canonical("1 1/2", {"Wall Thickness": "0.2", "A/P": "0.173"}) is None  # pipe
+    assert _tube_canonical("4 x 3", {"A/P": "0.232"}) is None  # no wall printed
+
+
+@pytest.mark.skipif(not LIB.exists(), reason="fetched library not present")
+def test_real_x794_tube_chart_derives_hss_canonicals():
+    import glob
+
+    hits = glob.glob(str(LIB / "GCP_Applied_Technologies" / "gcp-thk-x794-tube-*" / "*.pdf"))
+    if not hits:
+        pytest.skip("X794 tube chart not fetched")
+    rec = parse_gcp_chart_pdf(hits[0])
+    sized = [r for r in rec.rows if r.member_label != "Other"]
+    assert sized and all(r.canonical_source == "derived" for r in sized)
+    assert all(r.canonical.startswith("HSS") for r in sized)
+    assert all(r.canonical is None for r in rec.rows if r.member_label == "Other")

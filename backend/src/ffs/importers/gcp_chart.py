@@ -43,6 +43,10 @@ class GcpChartRow:
     group: str | None
     member_label: str
     canonical: str | None
+    # "printed" when the canonical designation comes from the printed label (W4 x 13), "derived"
+    # when it is composed from a printed nominal tube size and wall ("4 x 3" + "1/4" → HSS4X3X1/4);
+    # None when there is no canonical designation
+    canonical_source: str | None
     member_values: dict[str, str]
     wd: float | None  # the printed section-factor value (see ratio_name), None when not numeric
     ratio_name: str | None
@@ -344,6 +348,13 @@ def parse_gcp_chart_pdf(path: str | Path) -> GcpChartRecord:
                 except ValueError:
                     wd = None
             des = find_designations(label.replace(" x ", "X").replace(" ", ""))
+            canonical, canonical_source = (
+                (des[0].canonical, "printed") if len(des) == 1 else (None, None)
+            )
+            if canonical is None:
+                derived = _tube_canonical(label, values)
+                if derived:
+                    canonical, canonical_source = derived, "derived"
             for gi, g in enumerate(rec.groups):
                 gcols = [c for c in thk_cols if c.group == gi]
                 printed = [
@@ -380,7 +391,8 @@ def parse_gcp_chart_pdf(path: str | Path) -> GcpChartRecord:
                         pi + 1,
                         g.title,
                         label,
-                        des[0].canonical if len(des) == 1 else None,
+                        canonical,
+                        canonical_source,
                         dict(values),
                         wd,
                         ratio_col.name if ratio_col else None,
@@ -391,6 +403,26 @@ def parse_gcp_chart_pdf(path: str | Path) -> GcpChartRecord:
                 )
     doc.close()
     return rec
+
+
+_TUBE_SIZE = re.compile(r"^(\d+(?:\.\d+)?)\s*x\s*(\d+(?:\.\d+)?)$", re.IGNORECASE)
+_WALL = re.compile(r"^\d+/\d+$|^\d*\.\d+$")
+
+
+def _tube_canonical(label: str, values: dict[str, str]) -> str | None:
+    """HSS designation composed from a printed rectangular/square nominal size and wall.
+
+    Only when both are printed as the chart's own cells: a "4 x 3" size under a size column and
+    a fractional or decimal wall under a wall column. Pipes (one diameter) and "Other" rows get
+    nothing. The result goes through the designation module so the spelling matches member
+    records; the row records that it is derived, not printed.
+    """
+    m = _TUBE_SIZE.match(label.strip())
+    wall = next((v for k, v in values.items() if re.search(r"wall", k, re.IGNORECASE)), None)
+    if not m or not wall or not _WALL.match(wall.strip()):
+        return None
+    des = find_designations(f"HSS{m.group(1)}X{m.group(2)}X{wall.strip()}")
+    return des[0].canonical if len(des) == 1 else None
 
 
 def _read_header(rec: GcpChartRecord) -> None:
@@ -433,13 +465,13 @@ def write_gcp_chart(rec: GcpChartRecord, out_dir: str | Path) -> Path:
     with (out_dir / f"{stem}.csv").open("w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
         w.writerow(
-            ["design", "page", "group", "member_label", "canonical", *cols]
+            ["design", "page", "group", "member_label", "canonical", "canonical_source", *cols]
             + [f"{c} as printed" for c in ratings]
             + [f"{c} in" for c in ratings]
         )
         for r in rec.rows:
             w.writerow(
-                [rec.design, r.page, r.group, r.member_label, r.canonical]
+                [rec.design, r.page, r.group, r.member_label, r.canonical, r.canonical_source]
                 + [r.member_values.get(c, "") for c in cols]
                 + r.thickness_as_printed
                 + ["" if v is None else v for v in r.thickness_in]
