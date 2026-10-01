@@ -8,8 +8,22 @@
     "www.ppgpmc.com", "www.hilti.com", "www.international-pc.com", "www.nullifire.com",
     "www.iccsafe.org", "codes.iccsafe.org", "icc-es.org", "www.icc-es.org",
     "www.intertek.com", "bpdirectory.intertek.com",
-    "www.aisc.org", "www.nfca-online.org", "www.awci.org"
+    "www.aisc.org", "www.nfca-online.org", "www.awci.org",
+    "msds.carboline.com", "javapublic1.rpmsfa.com", "www.carboline-me.com",
+    "www.paintdocs.com", "protectiveeu.sherwin-williams.com", "pages.s-w.com",
+    "ca.gcpat.com", "th.gcpat.com", "gcpat.uk", "gcpat.hk", "gcpat.com.au", "gcpat.in", "beta.gcpat.com"
   ],
+  "_host_notes": {
+    "msds.carboline.com": "Carboline (RPM) document servlet: PDS, SDS, UL printouts. TLS needs OpenSSL legacy renegotiation (OPENSSL_CONF with UnsafeLegacyServerConnect).",
+    "javapublic1.rpmsfa.com": "RPM servlet behind carboline.com fireproofing pages: primer/topcoat lists, design flowcharts, evaluation reports.",
+    "www.carboline-me.com": "Carboline Middle East; hosts Pyrolite documents absent from the US site.",
+    "carboline.canto.com": "NOT allowed: robots.txt Disallow: /. Its documents are listed for manual download (ffs manual-list, ffs import-manual).",
+    "industrial.sherwin-williams.com": "Sherwin-Williams Protective & Marine (protective.sherwin-williams.com redirects here).",
+    "www.paintdocs.com": "Sherwin-Williams document server; extension-less URLs that return application/pdf.",
+    "gcpat.com": "HTML pages are challenge-gated and never fetched; PDFs under /sites/gcpat.com/files/ are served.",
+    "ca.gcpat.com": "GCP Canada; some PDFs answer 200 although HTML answers 403.",
+    "iq.ulprospector.com": "NEVER fetched: login and terms forbid automated retrieval; UL designs are pulled by a person."
+  },
   "sources": [
     {"id": "isolatek-cafco-400-tds", "manufacturer": "Isolatek", "product": "CAFCO 400", "kind": "product_data", "url": null, "notes": "C-TDS; copy dated 10-19 in hand"},
     {"id": "isolatek-cafco-300-tds", "manufacturer": "Isolatek", "product": "CAFCO 300", "kind": "product_data", "url": null},
