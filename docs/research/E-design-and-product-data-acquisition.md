@@ -65,3 +65,27 @@ the same way. FM is not relevant to structural fireproofing listings.
    Carboline design listings. Ingest with a generic table importer.
 3. Pull P723 and X790 from Product iQ (current), parse, and check the sample bid's thickness
    values against them: the first end-to-end validation of Milestone 3 logic.
+
+
+## First collection run (2026-10-01, network opened by the user)
+Probe results through the environment proxy: isolatek.com, carboline.com, sherwin-williams.com
+(protective), iccsafe.org, icc-es.org, aisc.org, nfca-online.org answer; gcpat.com, intertek.com
+and iq.ulprospector.com return 403 to any non-browser client. Those three are not fetched.
+
+| Source | Crawl result | Action |
+|---|---|---|
+| Isolatek (isolatek.com) | 205 pages, 778 documents: 444 under `/storage/designs_thickness/` (per-product thickness charts for CAFCO 300/400, BLAZE-SHIELD II/HP, FENDOLITE M-II/TG, SprayFilm WB 3/4/5, CAFCO Board, Albi; the full 2019 UL design set: 40 dry-mix, 28 wet-mix, 7 intumescent, 7 rigid-board designs), 51 product data sheets incl. CAFCO 300 and 400 C-TDS 10-20 and BLAZE-SHIELD II 04-23, 70 SDS, listing reports, guide specs | 525 documents fetched with provenance (SDS and non-technical PDFs skipped) |
+| Sherwin-Williams protective | 36 pages, 0 documents: product documents are served without file extensions, which the crawler does not yet follow | crawler improvement queued (content-type sniffing for extension-less links) |
+| Carboline | 250 pages, 2 documents; product pages redirect to http and answer 403 to automated clients | respected; documents to come from the rep or manual download |
+| NFCA | 150 pages, 300 documents, mostly association admin; code-update presentations and guidance PDFs among them | fetch the guidance subset later |
+| AISC shapes database | the download page serves a bot-challenge page and direct file paths return 403 | one manual download by the user; the file is then imported locally |
+
+### Validation note from X790 (fetched copy, last updated 2019-10-09)
+The sample bid lists HSS5X5X3/8 columns at 9/16 in. for 1 hour under X790. X790 gives
+`h = R / (188·(A/P) + 45)` with R in minutes for A/P 0.18–0.49, rounded up to 1/16 in.
+- With A/P from the nominal wall (gross 5×5 minus the 4.25×4.25 void over a 20 in. perimeter,
+  A/P ≈ 0.347): h = 60 / (65.2 + 45) = 0.544 → 9/16 in. Matches the bid.
+- With A/P from AISC's design wall thickness (A = 6.18 in², A/P ≈ 0.309): h = 0.582 → 5/8 in.
+(certain) The two conventions give different thicknesses for the same member under the same
+design. Which one the listing intends is a domain question for the estimator and the
+manufacturer, and the engine must record which convention it used on every HSS/pipe result.

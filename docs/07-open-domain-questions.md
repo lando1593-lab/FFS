@@ -62,3 +62,9 @@ answers can be referenced in commits. The ones marked **M1** block Milestone 1 d
 22. What single thing in The EDGE takes you five clicks that should take one?
 23. What does an estimator at your company do between "takeoff done" and "bid submitted" that
     the software should know about (e.g., alternates, scope letters, exclusions)?
+
+## Added after the first design validation (2026-10-01)
+24. **M3** For HSS and pipe columns, do you compute A/P with the nominal wall thickness or AISC's
+    design wall thickness (0.93 × nominal)? On X790 the two give 9/16 in. and 5/8 in. for an
+    HSS5X5X3/8 at 1 hour. Your sample bid matches the nominal-wall result. Is that The EDGE's
+    default, and does Isolatek's technical staff agree with it?
