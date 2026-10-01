@@ -32,6 +32,13 @@ _PAGE_HDR = re.compile(
 _PAGE_HDR_ALT = re.compile(
     r"\n?\d{1,2}/\d{1,2}/\d{4}\nFIRE-RESISTANCE RATINGS - ANSI/UL 263 \| UL Product iQ\n(?:https://[^\n]+\n)?\d+/\d+\n"
 )
+# the current Product iQ site (2025 printouts): a site announcement banner on the first page, no
+# per-page header/footer (no print date, URL or page number), the UL usage disclaimer before
+# "Design No." and UL Solutions' notices after "Last Updated". Only the banner is site chrome.
+_SITE_BANNER = re.compile(
+    r"^Coming [A-Z][a-z]+ \d{1,2}(?:st|nd|rd|th)?, discover our sleek new design and powerful features\. Learn More[ \t]*\n(?:ⓘ[ \t]*\n)?",
+    re.MULTILINE,
+)
 _DESIGN_NO = re.compile(r"^Design No\.\s*(?P<no>[A-Z]{1,3}-?\d{3,4}[A-Z]?)\s*$", re.MULTILINE)
 _BXUV_TITLE = re.compile(r"BXUV\.(?P<no>[A-Z]{1,3}-?\d{3,4}[A-Z]?)\s*-\s*FIRE-RESISTANCE RATINGS")
 _LAST_UPDATED = re.compile(r"Last Updated on (?P<d>\d{4}-\d{2}-\d{2})")
@@ -66,8 +73,13 @@ _R_UNITS = re.compile(
     re.IGNORECASE,
 )
 # "1 Hr" / "Min Thkns In. 2 Hr" / "1 Hr Min" (intumescent tables print "1 Hr Min" over "Thickness, In.")
+# / "1-1/2 Hr., MM" (current-site beam tables name the units in every column head)
 _RATING_COL = re.compile(
-    r"^(?:[A-Za-z.]+\s+)*(?P<r>\d(?:-\d/\d{1,2})?|\d/\d|1/2)\s*Hr\.?(?:\s+Min\.?)?$"
+    r"^(?:[A-Za-z.]+\s+)*(?P<r>\d(?:-\d/\d{1,2})?|\d/\d|1/2)\s*Hr\.?(?:\s+Min\.?)?(?:,?\s*(?P<u>MM|IN|mm|in)\.?)?$"
+)
+# "30 min" / "180 min" column heads (current-site tables with rating periods in minutes)
+_RATING_COL_MIN = re.compile(
+    r"^(?:[A-Za-z.]+\s+){0,2}(?P<r>\d{2,3})\s*[Mm]in\.?(?:,?\s*\(?(?P<u>mm|in|mils)\)?)?$"
 )
 # non-AISC member labels used in UL column tables: "SP 4x0.237" (std pipe), "ST 4x4x0.375", "ST20x20x0.75 in."
 _TUBE_LABEL = re.compile(
@@ -93,16 +105,22 @@ _RATING_HDR = re.compile(
     re.IGNORECASE,
 )
 _BARE_RATING = re.compile(r"^(?:\d(?:-\d/\d{1,2})?|\d/\d|\d{2,3})$")  # "1", "1-1/2", "60", "120"
+_BARE_HOURS = re.compile(r"^(?:\d(?:-\d/\d{1,2})?|\d/\d)$")  # "1/2", "1", "1-1/2"
+_BARE_MINUTES = re.compile(r"^\d{2,3}$")  # "60", "120"
 _BARE_HSS_LABEL = re.compile(
-    r"^\d{1,2}x\d{1,2}x(?:\d+/\d+|0?\.\d+)$"
-)  # "6x4x1/4" under "HSS Steel Size"
+    r"^\d{1,2}(?:\.\d+)?x\d{1,2}(?:\.\d+)?x(?:\d+/\d+|0?\.\d+)$"
+)  # "6x4x1/4", "3.5x3.5x5/16" under "HSS Steel Size" / "HSS Tube Size"
 _SPLIT_LABEL_HEAD = re.compile(
     r"^[A-Z]{1,3}\s?\d{1,3}\s?[xX]$"
 )  # "W16 x" with "100" on the next line
 _LEGEND = re.compile(r"^(?P<m>NR|N/A|—|–|\*{1,3}|\+|#)\s*=\s*\S.*$")  # "NR = No Rating"
-# a title line printed above a table that names what the table is for
+# a title line printed above a table that names what the table is for: "Unrestrained Beam Ratings:",
+# "UNRESTRAINED BEAM RATINGS", "Tube Steel Columns, Min Thkns, In.",
+# "Minimum Required Thickness (mm) for Rating Period"
 _TABLE_TITLE = re.compile(
-    r"^(?:.*\bRatings?:|.+\b(?:Columns?|Beams?|Joists?|Pipes?|Tubes?)\b.*,\s*Min\s+Thkns,?\s*(?:In|mm)\.?)$",
+    r"^(?:.*\bRatings?:|(?:Un)?restrained\s+(?:Beam|Assembly)\s+Ratings?"
+    r"|.+\b(?:Columns?|Beams?|Joists?|Pipes?|Tubes?)\b.*,\s*Min\s+Thkns,?\s*(?:In|mm)\.?"
+    r"|Minimum\s+Required\s+Thickness\s*\((?:in|mm|mils)\)\s*for\s+Rating\s+Period)$",
     re.IGNORECASE,
 )
 # intumescent "T = k/(W/D)" equations, inline ("for 1 hour ratings, in the W/D range of ...") or as
@@ -111,9 +129,19 @@ _T_EQUATION = re.compile(r"T\s*=\s*(?P<k>\d+(?:\.\d+)?)\s*/\s*\((?P<f>W/D|A/P|M/
 _FOR_RATING = re.compile(
     r"for\s+(?P<r>\d(?:-\d/\d{1,2})?|\d/\d)\s*(?:hour|hr\.?|h)\s+ratings?", re.IGNORECASE
 )
-_RANGE_LINE = re.compile(r"^(?P<lo>\d+(?:\.\d+)?)\s+to\s+(?P<hi>\d+(?:\.\d+)?)$")
-_EQ_TABLE_THK_HDR = re.compile(r"Thickness\s+Range,?\s*(?P<u>in|mm)\b", re.IGNORECASE)
-_EQ_TABLE_WD_HDR = re.compile(r"(?P<f>W/D|A/P|M/D)\s+Ratio\s+Range", re.IGNORECASE)
+# a range cell of an equation table: "0.021 to 0.093" (2016 layout) / "3.92 - 3.83", "212- 165"
+# (current site); the two numbers are kept in printed order
+_RANGE_LINE = re.compile(r"^(?P<lo>\d+(?:\.\d+)?)\s*(?:to|-|–)\s*(?P<hi>\d+(?:\.\d+)?)$")
+_EQ_TABLE_THK_HDR = re.compile(r"Thickness\s+Range,?\s*\(?(?P<u>in|mm)\b", re.IGNORECASE)
+_EQ_TABLE_WD_HDR = re.compile(
+    r"(?P<f>W/D|A/P|M/D|Hp/A)\s+(?:Ratio|Section\s+Factor)\s+Range", re.IGNORECASE
+)
+# linear intumescent equations as the current site prints them: "T =((0.0008*Hp/A) + 3.5825)",
+# one per equation-table row ("Hourly Rating | Thickness Equation (mm) | Thickness Range (mm) |
+# Hp/A Section Factor Range"); the sign printed before b is part of b
+_LIN_EQUATION = re.compile(
+    r"T\s*=\s*\(?\(?\s*(?P<a>\d+(?:\.\d+)?)\s*[*×]\s*\(?(?P<f>Hp/A|W/D|A/P|M/D)\)?\s*\)?\s*(?P<op>[+\-–−])\s*(?P<b>\d+(?:\.\d+)?)(?:\s*\))?"
+)
 # dry-mix pipe/tube fraction layout: "R — 0.38" printed above "h =", "3.58 (A/P)" below it
 _EQUATION_RC = re.compile(
     r"R\s*(?:—|–|-)\s*(?P<c>\d+(?:\.\d+)?)\s*\n\s*h\s*=\s*\n\s*(?P<k>\d+(?:\.\d+)?)\s*\((?P<f>W/D|A/P)\)\s*\n"
@@ -127,7 +155,7 @@ _WD_SHALL_RANGE = re.compile(
     re.IGNORECASE,
 )
 _SEE_TABLE_BELOW = re.compile(r"table below", re.IGNORECASE)
-_REPRO = re.compile(r"UL permits the reproduction.*", re.DOTALL)
+_REPRO = re.compile(r"UL(?: Solutions)? permits the reproduction.*", re.DOTALL)
 
 
 def frac_in(s: str) -> float | None:
@@ -145,10 +173,15 @@ def frac_in(s: str) -> float | None:
         return None
 
 
+def _factor_name(s: str) -> str:
+    """The section-ratio name as the record spells it: W/D, A/P, M/D upper-cased, Hp/A as is."""
+    return "Hp/A" if s.strip().lower() == "hp/a" else s.strip().upper()
+
+
 @dataclass
 class TableRow:
     cells: list[str]  # as printed
-    label: str | None = None  # member label for size tables, e.g. W8X10
+    label: str | None = None  # member label for size tables, e.g. W8X10; None in a ratio_rows table
     canonical: str | None = None
     wd: float | None = None  # first ratio column (W/D, A/P or M/D: see ThicknessTable.ratio_names)
     # thickness cells in inches: None for a marker cell (NR, N/A, —) and for a table printed in mm
@@ -162,7 +195,9 @@ class TableRow:
 @dataclass
 class ThicknessTable:
     item_no: str | None
-    kind: str  # "size_wd" (member × W/D × ratings) | "rating_rows" (rating columns + value columns)
+    # "size_wd" (member × W/D × ratings) | "rating_rows" (rating columns + value columns) |
+    # "ratio_rows" (rows keyed by a section ratio such as Hp/A alone, no member size printed)
+    kind: str
     headers: list[str]
     rating_columns: list[str] = field(
         default_factory=list
@@ -183,9 +218,10 @@ class ThicknessTable:
 @dataclass
 class Equation:
     item_no: str | None
-    form: str  # "h = R / (a*(W/D) + b)" | "T = k / (W/D)" | "h = (R - c) / (k*(A/P))"
-    a: float | None  # "h = R / (a*X + b)" only
-    b: float | None
+    # "h = R / (a*(W/D) + b)" | "T = k / (W/D)" | "h = (R - c) / (k*(A/P))" | "T = a*(Hp/A) + b"
+    form: str
+    a: float | None  # "h = R / (a*X + b)" and "T = a*X + b" only
+    b: float | None  # signed as printed: "T =((0.0142*Hp/A) - 0.4131)" gives b = -0.4131
     wd_range: (
         tuple[float, float] | None
     )  # range of ``factor`` the equation is valid for, as printed
@@ -289,6 +325,7 @@ def strip_page_furniture(text: str) -> tuple[str, str | None, str | None]:
         snap, url = m.group("snap"), m.group("url")
     text = _PAGE_HDR.sub("\n", text)
     text = _PAGE_HDR_ALT.sub("\n", text)
+    text = _SITE_BANNER.sub("", text)
     return text, snap, url
 
 
@@ -298,6 +335,18 @@ def find_design_no(text: str) -> str | None:
     when the text carries no design number (a UL certificate or notice, for example)."""
     m = _DESIGN_NO.search(text) or _BXUV_TITLE.search(text)
     return m.group("no").upper().replace("-", "") if m else None
+
+
+def _rating_col(t: str) -> str | None:
+    """The rating a table column head names, normalised ("1 Hr", "1-1/2 Hr", "60 min"), or None
+    when ``t`` is not a column head."""
+    m = _RATING_COL.match(t)
+    if m:
+        return m.group("r") + " Hr"
+    m = _RATING_COL_MIN.match(t)
+    if m:
+        return m.group("r") + " min"
+    return None
 
 
 def _is_size_label(ln: str, bare_hss: bool = False) -> bool:
@@ -320,6 +369,10 @@ def _header_back(lines: list[str], i: int) -> list[int]:
         if not t:
             k -= 1
             continue
+        if _TABLE_TITLE.match(t):  # a table title may be longer than a header fragment
+            out.append(k)
+            k -= 1
+            continue
         if (
             len(t) > 40
             or t[0].islower()
@@ -327,7 +380,7 @@ def _header_back(lines: list[str], i: int) -> list[int]:
             or _THK_CELL.match(t)
             or _BARE_RATING.match(t)
             or _FLOAT.match(t)
-            or _RATING_COL.match(t)
+            or _rating_col(t)
             or _ITEM.match(t)
             or _ITEM_PLAIN.match(t)
             or _is_size_label(t, bare_hss=True)
@@ -390,6 +443,9 @@ def _parse_size_wd_table(
     )
     n = len(rating_cols)
     n_ratio = max(1, len(tbl.ratio_names))
+    # rows keyed by the ratio alone ("Hp/A | 1 Hr., MM | ..." with no member size printed): decided
+    # on the first row and only when the header declares the ratio column
+    ratio_keyed: bool | None = None
     while i < len(lines):
         ln = lines[i].strip()
         if not ln:
@@ -405,21 +461,47 @@ def _parse_size_wd_table(
         ):
             ln = ln + " " + lines[j].strip()
             j += 1
-        if not _is_size_label(ln, bare_hss):
-            break
-        core = ln.lstrip("*")
-        des = find_designations(core)
-        if not des and bare_hss and _BARE_HSS_LABEL.match(core):
-            des = find_designations("HSS" + core)  # the header ("HSS Steel Size") names the family
-        label = ln
-        ratio_cells: list[str] = []
-        if j < len(lines) and _FLOAT.match(lines[j].strip()):
-            ratio_cells.append(lines[j].strip())
-            j += 1
-            # further ratio columns only when the header declares them ("M/D" then "Hp/A")
+        if ratio_keyed is None:
+            ratio_keyed = (
+                bool(tbl.ratio_names) and not _is_size_label(ln, bare_hss) and bool(_NUM.match(ln))
+            )
+            if ratio_keyed:
+                tbl.kind = "ratio_rows"
+        if ratio_keyed:
+            if not _NUM.match(ln):
+                break
+            label = None
+            des = []
+            ratio_cells = [ln]
             while len(ratio_cells) < n_ratio and j < len(lines) and _NUM.match(lines[j].strip()):
                 ratio_cells.append(lines[j].strip())
                 j += 1
+        else:
+            if not _is_size_label(ln, bare_hss):
+                break
+            core = ln.lstrip("*")
+            des = find_designations(core)
+            if not des and bare_hss and _BARE_HSS_LABEL.match(core):
+                des = find_designations(
+                    "HSS" + core
+                )  # the header ("HSS Steel Size") names the family
+            label = ln
+            ratio_cells = []
+            # a page break may fall between the label and its ratio cell
+            while j < len(lines) and j < i + 3 and not lines[j].strip():
+                j += 1
+            # the ratio cell is a decimal; a whole number ("1" for W/D = 1.00) counts only when
+            # the header declares the ratio column, so a bare thickness is never read as a ratio
+            ratio_re = _NUM if tbl.ratio_names else _FLOAT
+            if j < len(lines) and ratio_re.match(lines[j].strip()):
+                ratio_cells.append(lines[j].strip())
+                j += 1
+                # further ratio columns only when the header declares them ("M/D" then "Hp/A")
+                while (
+                    len(ratio_cells) < n_ratio and j < len(lines) and _NUM.match(lines[j].strip())
+                ):
+                    ratio_cells.append(lines[j].strip())
+                    j += 1
         vals: list[str] = []
         blanks = 0
         while j < len(lines) and len(vals) < n:
@@ -442,12 +524,12 @@ def _parse_size_wd_table(
         else:
             values_in = nums
         row = TableRow(
-            cells=[label] + ratio_cells + vals,
-            label=label.lstrip("*"),
+            cells=([label] if label is not None else []) + ratio_cells + vals,
+            label=label.lstrip("*") if label is not None else None,
             canonical=des[0].canonical if des else None,
             wd=float(ratio_cells[0]) if ratio_cells else None,
             values_in=values_in,
-            note="*" if label.startswith("*") else None,
+            note="*" if label is not None and label.startswith("*") else None,
             ratios=[float(r) for r in ratio_cells],
             values=nums,
         )
@@ -526,6 +608,8 @@ def parse_design_text(text: str, source_file: str | None = None) -> DesignRecord
     last_units: str | None = None
     last_table_end: int | None = None  # line index right after the last parsed table
     pending_condition: str | None = None
+    pending_is_equation_intro = False
+    last_mfr: Manufacturer | None = None  # set while the previous line was a manufacturer line
     i = 0
     while i < len(lines):
         ln = lines[i].rstrip()
@@ -533,6 +617,7 @@ def parse_design_text(text: str, source_file: str | None = None) -> DesignRecord
         if not s:
             i += 1
             continue
+        prev_mfr, last_mfr = last_mfr, None  # a manufacturer line only continues on the next line
         im = _ITEM.match(s) or _ITEM_PLAIN.match(s)
         if im and not (cur and cur.no == im.group("no")):
             cur = Item(im.group("no"), im.group("title").strip(" —-"), s)
@@ -560,16 +645,30 @@ def parse_design_text(text: str, source_file: str | None = None) -> DesignRecord
             cur.manufacturers.append(
                 Manufacturer(cur.no, mm.group("name").strip(), mm.group("text").strip())
             )
+            last_mfr = cur.manufacturers[-1]
             i += 1
             continue
-        # size × W/D × rating-columns table header: a run of "N Hr" lines
-        if _RATING_COL.match(s):
+        if (
+            prev_mfr is not None
+            and re.search(r"(?:\band|\bor|,)$", prev_mfr.text)
+            and len(s) <= 60
+            and s[0].isupper()
+            and "—" not in s
+        ):
+            # the manufacturer line wrapped ("... INTERIOR CONDITIONED SPACE and" / "EXTERIOR
+            # ENVIRONMENTAL"): the continuation belongs to the manufacturer text
+            prev_mfr.text += " " + s
+            i += 1
+            continue
+        # size × W/D × rating-columns table header: a run of "N Hr" / "N min" lines
+        if _rating_col(s):
             cols = []
             j = i
             while j < len(lines):
                 t = lines[j].strip()
-                if _RATING_COL.match(t):
-                    cols.append(_RATING_COL.match(t).group("r") + " Hr")
+                col = _rating_col(t)
+                if col:
+                    cols.append(col)
                     j += 1
                     continue
                 # blank lines and digit-less label fragments ("Min Thkns") inside the run: skip
@@ -577,7 +676,7 @@ def parse_design_text(text: str, source_file: str | None = None) -> DesignRecord
                 q = None
                 for cand in range(j + 1, min(j + 5, len(lines))):
                     c = lines[cand].strip()
-                    if _RATING_COL.match(c):
+                    if _rating_col(c):
                         q = cand
                         break
                     if c and re.search(r"\d", c):
@@ -599,10 +698,13 @@ def parse_design_text(text: str, source_file: str | None = None) -> DesignRecord
                 frags.append(t)
                 j += 1
             hdr = [x.strip() for x in lines[max(0, i - 6) : i] if x.strip()]
-            back_lines = [lines[b].strip() for b in _header_back(lines, i)]
+            back = _header_back(lines, i)
+            back_lines = [lines[b].strip() for b in back]
             ratio_names = [t for t in back_lines if _RATIO_NAME.match(t)]
             units = _units_in(back_lines + [x.strip() for x in lines[i:j]])
             title = next((t for t in back_lines if _TABLE_TITLE.match(t)), None)
+            bare_hss = any(re.search(r"\bHSS\b", t) for t in back_lines + frags)
+            hstart = back[0] if back else i
             tbl, j2 = _parse_size_wd_table(
                 lines,
                 j,
@@ -612,6 +714,7 @@ def parse_design_text(text: str, source_file: str | None = None) -> DesignRecord
                 title or pending_condition,
                 ratio_names=ratio_names,
                 units=units,
+                bare_hss=bare_hss,
             )
             if title and pending_condition:
                 tbl.notes.append(f"introduced by: {pending_condition}")
@@ -619,6 +722,22 @@ def parse_design_text(text: str, source_file: str | None = None) -> DesignRecord
             last_ratio_names, last_units = ratio_names, units
             pending_condition = None
             if tbl.rows:
+                prev = tables[-1] if tables else None
+                if (
+                    tbl.condition is None
+                    and prev is not None
+                    and prev.kind in ("size_wd", "ratio_rows")
+                    and prev.item_no == tbl.item_no
+                    and prev.condition
+                    and last_table_end is not None
+                    and not any(x.strip() for x in lines[last_table_end:hstart])
+                ):
+                    # a second table (e.g. the inch copy of a metric table) printed directly
+                    # under the first with no heading of its own: the heading above both applies
+                    tbl.condition = prev.condition
+                    tbl.notes.append(
+                        f"heading carried over from the table printed directly above: {prev.condition}"
+                    )
                 _legend_after(lines, j2, tbl)
                 tables.append(tbl)
                 last_table_end = j2
@@ -665,6 +784,9 @@ def parse_design_text(text: str, source_file: str | None = None) -> DesignRecord
         rh = _RATING_HDR.match(s) if cur is not None else None
         if rh:
             unit = "min" if rh.group("u").lower().startswith("min") else "Hr"
+            # heads are hours ("1/2", "1-1/2") under "(hr)" and 2-3 digit minutes under "(min)";
+            # a 3-digit Hp/A value starting the first row of a ratio-keyed table is not a head
+            head_re = _BARE_MINUTES if unit == "min" else _BARE_HOURS
             j = i + 1
             raw_cols: list[str] = []
             while j < len(lines):
@@ -672,8 +794,10 @@ def parse_design_text(text: str, source_file: str | None = None) -> DesignRecord
                 if not t:
                     j += 1
                     continue
-                if not _BARE_RATING.match(t):
+                if not head_re.match(t):
                     break
+                if j + 1 < len(lines) and _FLOAT.match(lines[j + 1].strip()):
+                    break  # a number followed by a decimal cell starts a row, not a head
                 raw_cols.append(t)
                 j += 1
             frags = []  # "Required Thickness (mils)" printed between the heads and the rows
@@ -689,9 +813,12 @@ def parse_design_text(text: str, source_file: str | None = None) -> DesignRecord
             back = _header_back(lines, i)
             back_lines = [lines[b].strip() for b in back]
             bare_hss = any(re.search(r"\bHSS\b", t) for t in back_lines + frags)
-            if len(raw_cols) >= 2 and j < len(lines) and _is_size_label(lines[j].strip(), bare_hss):
+            ratio_names = [t for t in back_lines if _RATIO_NAME.match(t)]
+            first = lines[j].strip() if j < len(lines) else ""
+            if len(raw_cols) >= 2 and (
+                _is_size_label(first, bare_hss) or (ratio_names and _NUM.match(first))
+            ):
                 cols = [f"{c} {unit}" for c in raw_cols]
-                ratio_names = [t for t in back_lines if _RATIO_NAME.match(t)]
                 units = _units_in(back_lines + [s] + frags)
                 title = next((t for t in back_lines if _TABLE_TITLE.match(t)), None)
                 hstart = back[0] if back else i
@@ -713,7 +840,7 @@ def parse_design_text(text: str, source_file: str | None = None) -> DesignRecord
                     if (
                         tbl.condition is None
                         and prev is not None
-                        and prev.kind == "size_wd"
+                        and prev.kind in ("size_wd", "ratio_rows")
                         and prev.item_no == tbl.item_no
                         and prev.condition
                         and last_table_end is not None
@@ -824,6 +951,12 @@ def parse_design_text(text: str, source_file: str | None = None) -> DesignRecord
                 cond += " " + lines[k].strip()
                 k += 1
             pending_condition = cond
+            # "As an alternate to the table below, ... the equations listed below": the sentence
+            # introduces the equations, not the table, and is consumed when they are printed
+            pending_is_equation_intro = bool(re.search(r"equation", cond, re.IGNORECASE))
+        elif pending_is_equation_intro and (_LIN_EQUATION.search(s) or _T_EQUATION.search(s)):
+            pending_condition = None
+            pending_is_equation_intro = False
         # otherwise: body text of the current item/sub-item
         if cur_sub is not None:
             cur_sub["text"] += " " + s
@@ -882,15 +1015,19 @@ def parse_design_text(text: str, source_file: str | None = None) -> DesignRecord
                 own = it.no
         return own
 
-    # intumescent "T = k/(W/D)" equations: one record per (rating, equation)
-    tms = list(_T_EQUATION.finditer(core))
-    for idx, em in enumerate(tms):
-        factor = em.group("f").upper()
+    def _row_context(
+        ms: list[re.Match], idx: int, factor: str
+    ) -> tuple[str, str | None, tuple | None, tuple | None, str | None, list[str]]:
+        """Context of the ``idx``-th equation match of ``ms``: its printed line, the rating it is
+        restricted to, the ratio range, the thickness range and its units, and notes. Read from
+        an equation-table row ("1 | T = ... | 0.021 to 0.093 | 0.44 to 3.00") when the match sits
+        between a bare rating cell and two range cells, else from the introducing sentence."""
+        em = ms[idx]
         ls = core.rfind("\n", 0, em.start()) + 1
         le = core.find("\n", em.end())
         le = len(core) if le < 0 else le
-        prev_end = tms[idx - 1].end() if idx else 0
-        next_start = tms[idx + 1].start() if idx + 1 < len(tms) else len(core)
+        prev_end = ms[idx - 1].end() if idx else 0
+        next_start = ms[idx + 1].start() if idx + 1 < len(ms) else len(core)
         before_full = core[max(0, ls - 800) : ls]
         before = core[max(prev_end, ls - 600) : ls]  # this equation's own sentence only
         after = core[le:next_start][:400]
@@ -910,7 +1047,9 @@ def parse_design_text(text: str, source_file: str | None = None) -> DesignRecord
             rating = prev_lines[-1]
             thk_hdr = list(_EQ_TABLE_THK_HDR.finditer(before_full))
             wd_hdr = [
-                m for m in _EQ_TABLE_WD_HDR.finditer(before_full) if m.group("f").upper() == factor
+                m
+                for m in _EQ_TABLE_WD_HDR.finditer(before_full)
+                if _factor_name(m.group("f")) == factor
             ]
             if thk_hdr and wd_hdr:
                 th, wh = thk_hdr[-1], wd_hdr[-1]
@@ -928,7 +1067,7 @@ def parse_design_text(text: str, source_file: str | None = None) -> DesignRecord
             fr = list(_FOR_RATING.finditer(before))
             if fr:
                 rating = fr[-1].group("r")
-            wds = [m for m in _WD_RANGE.finditer(before) if m.group("f").upper() == factor]
+            wds = [m for m in _WD_RANGE.finditer(before) if _factor_name(m.group("f")) == factor]
             if wds:
                 wd_rng = (frac_in(wds[-1].group("lo")), frac_in(wds[-1].group("hi")))
             hm = _H_RANGE.search(after)
@@ -939,9 +1078,16 @@ def parse_design_text(text: str, source_file: str | None = None) -> DesignRecord
             notes.append(
                 f"thickness range printed as {h_rng[0]} to {h_rng[1]} (low above high); kept as printed"
             )
+        return core[ls:le].strip(), rating, wd_rng, h_rng, h_units, notes
+
+    # intumescent "T = k/(W/D)" equations: one record per (rating, equation)
+    tms = list(_T_EQUATION.finditer(core))
+    for idx, em in enumerate(tms):
+        factor = _factor_name(em.group("f"))
+        line, rating, wd_rng, h_rng, h_units, notes = _row_context(tms, idx, factor)
         equations.append(
             Equation(
-                _owner_of(core[ls:le].strip()),
+                _owner_of(line),
                 f"T = k / ({factor})",
                 None,
                 None,
@@ -950,6 +1096,36 @@ def parse_design_text(text: str, source_file: str | None = None) -> DesignRecord
                 re.sub(r"\s+", " ", em.group(0)),
                 factor=factor,
                 k=float(em.group("k")),
+                rating=rating,
+                rating_hours=frac_in(rating) if rating else None,
+                h_range=h_rng,
+                h_units=h_units,
+                notes=notes,
+            )
+        )
+    # linear intumescent equations "T =((a*Hp/A) + b)" (current-site equation tables)
+    lms = list(_LIN_EQUATION.finditer(core))
+    for idx, em in enumerate(lms):
+        factor = _factor_name(em.group("f"))
+        line, rating, wd_rng, h_rng, h_units, notes = _row_context(lms, idx, factor)
+        if wd_rng and None not in wd_rng and wd_rng[0] > wd_rng[1]:
+            notes.append(
+                f"{factor} range printed as {wd_rng[0]} to {wd_rng[1]} (high to low); kept as printed"
+            )
+        printed = re.sub(r"\s+", " ", em.group(0)).strip()
+        if printed.count("(") != printed.count(")"):
+            notes.append("parentheses unbalanced as printed; kept as printed")
+        b = float(em.group("b"))
+        equations.append(
+            Equation(
+                _owner_of(line),
+                f"T = a*({factor}) + b",
+                float(em.group("a")),
+                -b if em.group("op") != "+" else b,
+                wd_rng,
+                h_rng if h_units == "in" else None,
+                printed,
+                factor=factor,
                 rating=rating,
                 rating_hours=frac_in(rating) if rating else None,
                 h_range=h_rng,
