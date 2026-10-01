@@ -370,9 +370,18 @@ def parse_design_text(text: str, source_file: str | None = None) -> DesignRecord
             tbl, j2 = _parse_size_wd_table(
                 lines, i, last_rating_cols, cur.no if cur else None, [], pending_condition
             )
-            pending_condition = None
             if tbl.rows:
-                tables.append(tbl)
+                prev = tables[-1] if tables else None
+                if (
+                    pending_condition is None
+                    and prev is not None
+                    and prev.kind == "size_wd"
+                    and prev.rating_columns == last_rating_cols
+                ):
+                    prev.rows.extend(tbl.rows)  # continuation after a page break
+                else:
+                    tables.append(tbl)
+                pending_condition = None
                 i = j2
                 continue
         # rating-rows table header: "Rating Hr" lines, then value-column lines ending in "In."
@@ -428,7 +437,13 @@ def parse_design_text(text: str, source_file: str | None = None) -> DesignRecord
                     i = j2
                     continue
         if _SEE_TABLE_BELOW.search(s):
-            pending_condition = s
+            # the introducing sentence may wrap onto following lines; keep it whole
+            cond = s
+            k = i + 1
+            while not cond.rstrip().endswith((".", ":")) and k < len(lines) and k < i + 4:
+                cond += " " + lines[k].strip()
+                k += 1
+            pending_condition = cond
         # otherwise: body text of the current item/sub-item
         if cur_sub is not None:
             cur_sub["text"] += " " + s
