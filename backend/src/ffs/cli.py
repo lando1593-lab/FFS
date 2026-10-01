@@ -344,6 +344,32 @@ def import_isolatek_chart(
         typer.echo(f"   → {p}")
 
 
+@app.command("import-reference")
+def import_reference(
+    library: Path = typer.Option(
+        Path("../data/reference_library/fetched"), help="fetched library root"
+    ),
+    out: Path = typer.Option(Path("../data/reference_library/parsed"), help="output root"),
+    url_filter: str = typer.Option("", help="only documents whose URL contains this text"),
+) -> None:
+    """Route every fetched PDF by content (UL printout / Isolatek chart / other) and parse it."""
+    from collections import Counter
+
+    from ffs.importers.router import route_manifest
+
+    results = route_manifest(library / "manifest.jsonl", library, out, url_filter)
+    by = Counter(r.kind for r in results)
+    typer.echo(f"{len(results)} documents routed: {dict(by)}")
+    typer.echo(
+        f"  UL designs with tables/equations: {sum(1 for r in results if r.kind == 'ul_design' and (r.tables or r.equations))}"
+        f" of {by.get('ul_design', 0)}; chart rows: {sum(r.rows for r in results if r.kind == 'isolatek_chart')}"
+    )
+    for r in results:
+        if r.kind == "error" or (r.kind == "isolatek_chart" and r.rows == 0):
+            typer.secho(f"  ! {r.kind} {r.path.split('/')[-1]} {r.error or 'no rows'}", fg="yellow")
+    typer.echo(f"report: {out / 'route_report.jsonl'}")
+
+
 @app.command()
 def synth(out_dir: Path = Path("golden/synthetic/gp0_simple_bay")) -> None:
     """Generate the synthetic golden sheet + truth.json."""

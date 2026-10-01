@@ -171,6 +171,66 @@ def test_tube_table_with_split_header():
     assert t.rows[0].canonical is None
 
 
+FLOOR = """Design No. N998
+May 07, 2018
+Restrained Assembly Ratings — 1, 1-1/2, 2, 3 and 4 Hr
+6. Spray-Applied Fire Resistive Materials* — Applied by spraying.
+Normal Weight Concrete, Fluted Floor and Form Units, Min Thkns In.
+Rating, Hr
+Restrained Beam
+Unrestrained Beam
+1
+1/2
+1/2
+1-1/2
+3/4
+3/4
+2-1/2*
+1-1/4
+1-3/8
+6A. Spray-Applied Fire Resistive Materials* — As an alternate.
+Restrained Assembly 
+Rating Hr
+Unrestrained 
+Beam Rating Hr
+Min Beam 
+Size
+Min Thkns 
+on Beam In.
+1, 1-1/2, 2, 3
+1-1/2
+W10x29
+3/4
+1, 1-1/2, 2
+1
+W8x28
+1/2
+Last Updated on 2018-05-07
+"""
+
+
+def test_floor_beam_tables_with_text_columns():
+    rec = parse_design_text(FLOOR)
+    assert len(rec.tables) == 2
+    t6, t6a = rec.tables
+    assert (
+        t6.item_no == "6"
+        and t6.rating_fields == 1
+        and t6.value_columns == ["Restrained Beam", "Unrestrained Beam"]
+    )
+    assert t6.condition.startswith("Normal Weight Concrete")
+    assert [r.cells for r in t6.rows] == [
+        ["1", "1/2", "1/2"],
+        ["1-1/2", "3/4", "3/4"],
+        ["2-1/2*", "1-1/4", "1-3/8"],
+    ]
+    assert t6a.item_no == "6A" and t6a.rating_fields == 2
+    assert t6a.value_columns == ["Min Beam Size", "Min Thkns on Beam In."]
+    assert t6a.rows[0].cells == ["1, 1-1/2, 2, 3", "1-1/2", "W10x29", "3/4"] and t6a.rows[
+        0
+    ].values_in == [None, 0.75]
+
+
 REF = Path(os.environ.get("FFS_REFERENCE_LIBRARY", "/home/user/FFS/data/reference_library"))
 
 

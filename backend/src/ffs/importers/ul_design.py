@@ -71,8 +71,9 @@ _TUBE_LABEL = re.compile(
     r"^(?:SP|ST|RT|HSS|PIPE|TS)\s?\d+(?:\.\d+)?(?:x\d+(?:\.\d+)?){1,2}(?:\s?in\.?)?$", re.IGNORECASE
 )
 _RATING_CELL = re.compile(
-    r"^(?P<a>\d(?:-\d/\d{1,2})?|\d/\d)(?:\s*(?:or|,)\s*(?P<b>\d(?:-\d/\d{1,2})?|\d/\d))?$"
+    r"^(?P<a>\d(?:-\d/\d{1,2})?|\d/\d)(?:\s*(?:or|,|and)\s*(?:\d(?:-\d/\d{1,2})?|\d/\d))*[*+#]*$"
 )
+_VALUE_CELL = re.compile(r"^(?:[A-Z]{1,3}\d{1,2}[xX]\d{1,3}(?:\.\d)?|\d{1,2}K\d{1,2})$")
 _THK_CELL = re.compile(
     r"^(?P<v>\d+(?:-\d+/\d+)?|\d+/\d+|—|-|–|\d+\.\d+)(?P<note>\s*\(\s*[\d/ *-]+\)|[*+#]+)?$"
 )
@@ -284,12 +285,17 @@ def _parse_rating_rows_table(
             continue
         rat = [lines[i + t].strip() for t in range(k)]
         vals = [lines[i + k + t].strip() for t in range(m)]
-        if not all(_RATING_CELL.match(r) for r in rat) or not all(_THK_CELL.match(v) for v in vals):
+        if not all(_RATING_CELL.match(r) for r in rat) or not all(
+            _THK_CELL.match(v) or _VALUE_CELL.match(v) for v in vals
+        ):
             break
         tbl.rows.append(
             TableRow(
                 cells=rat + vals,
-                values_in=[frac_in(_THK_CELL.match(v).group("v")) for v in vals],
+                values_in=[
+                    frac_in(_THK_CELL.match(v).group("v")) if _THK_CELL.match(v) else None
+                    for v in vals
+                ],
                 note=" ".join(v for v in vals if re.search(r"[*+#(]", v)) or None,
             )
         )
@@ -435,7 +441,7 @@ def parse_design_text(text: str, source_file: str | None = None) -> DesignRecord
             cur is not None
             and "—" not in s
             and (
-                re.search(r"Ratings?\s*Hr\.?$", s)
+                re.search(r"Ratings?,?\s*Hr\.?$", s)
                 or (
                     s.startswith(("Restrained", "Unrestrained"))
                     and i + 2 < len(lines)
@@ -448,6 +454,7 @@ def parse_design_text(text: str, source_file: str | None = None) -> DesignRecord
             k = 0
             vcols: list[str] = []
             buf = ""
+            extra: list[str] = []  # header lines after the rating columns that do not end in "In."
             while j < len(lines) and j < i + 24:
                 t = lines[j].strip()
                 if not t:
@@ -461,21 +468,27 @@ def parse_design_text(text: str, source_file: str | None = None) -> DesignRecord
                     j += 1
                     continue
                 buf = (buf + " " + t).strip()
-                if re.search(r"Ratings?\s*Hr\.?$", t):
-                    k += 1 + (
-                        1
-                        if "&" in buf
-                        and "Unrestrained" in buf
-                        and "Restrained" in buf
-                        and k == 0
-                        and False
-                        else 0
-                    )
+                if re.search(r"Ratings?,?\s*Hr\.?$", t):
+                    k += 1
                     buf = ""
                 elif re.search(r"In\.\s*\*?$", t) or t.endswith("In."):
                     vcols.append(buf)
                     buf = ""
+                elif k and re.fullmatch(
+                    r"(?:Un)?restrained\s+(?:Beam|Assembly)s?|Beams?|Joists?|Columns?",
+                    t,
+                    re.IGNORECASE,
+                ):
+                    extra.append(t)
+                    buf = ""
+                elif k and re.fullmatch(
+                    r"(?:Min\s+)?(?:Beam|Column|Joist)\s+Size", buf, re.IGNORECASE
+                ):
+                    vcols.append(buf)  # a text column such as "Min Beam Size"
+                    buf = ""
                 j += 1
+            if k and not vcols and extra:
+                vcols = extra  # e.g. "Rating, Hr | Restrained Beam | Unrestrained Beam"
             subs = []
             for a_i in range(len(hdr) - 1):
                 nxt = hdr[a_i + 1]
@@ -490,6 +503,15 @@ def parse_design_text(text: str, source_file: str | None = None) -> DesignRecord
                 vcols = vcols[:-1] + [f"{parent} {sname}" for sname in subs]
             if k and vcols and j < len(lines):
                 tbl, j2 = _parse_rating_rows_table(lines, j, k, vcols, cur.no if cur else None, hdr)
+                # a title line just above the header names the table's condition, e.g.
+                # "Normal Weight Concrete, Fluted Floor and Form Units, Min Thkns In."
+                for back in range(i - 1, max(-1, i - 3), -1):
+                    prev_line = lines[back].strip() if back >= 0 else ""
+                    if prev_line and (
+                        prev_line.endswith("In.") or re.search(r"Concrete|Deck|Units", prev_line)
+                    ):
+                        tbl.condition = prev_line
+                        break
                 if tbl.rows:
                     tables.append(tbl)
                     i = j2

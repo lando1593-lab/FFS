@@ -41,7 +41,11 @@ _TUBE_FAMILY = re.compile(r"^(?P<a>\d+(?:\.\d+)?)\s*x\s*(?P<b>\d+(?:\.\d+)?)$")
 _NUMBER = re.compile(r"^\d+(?:\.\d+)?$")
 _FRAC_OR_DEC = re.compile(r"^(?:\d+/\d+|\d*\.\d+|\d+-\d+/\d+|\d+)$")
 _X_CONT = re.compile(r"^x\s*(?P<v>\d+(?:-\d+/\d+)?|\d+/\d+|\d*\.\d+)$", re.IGNORECASE)
-_THK = re.compile(r"^(?:\d+(?:-\d+/\d+)?|\d+/\d+|NR|N/R|—|-)$", re.IGNORECASE)
+_THK = re.compile(r"^(?:\d+(?:[- ]+\d+/\d+)?|\d+/\d+|\d*\.\d+|NR|N/R|—|-)[+#*]*$", re.IGNORECASE)
+_JOIST = re.compile(r"^\d{1,2}(?:K|LH|DLH|KCS)\d{1,2}$", re.IGNORECASE)
+_FAMILY_OPEN = re.compile(
+    r"^(?P<fam>W|HP|M|S|C|MC|WT|L|HSS)\s*(?P<depth>\d+(?:\.\d+)?)\s*x\s*$", re.IGNORECASE
+)
 _SECTION = re.compile(
     r"^(?P<s>(?:Un)?restrained\s+(?:Beam|Column|Assembly)s?|Columns?|Beams?|Joists?)\s*$",
     re.IGNORECASE,
@@ -144,11 +148,31 @@ def parse_chart_pdf(path: str | Path) -> ChartRecord:
             hdr_idx = [i for i, ln in enumerate(lines) if _RATING_HDR.match(ln)]
             if not hdr_idx:
                 continue
+            groups: list[list[int]] = [[hdr_idx[0]]]
+            for ix in hdr_idx[1:]:
+                if ix - groups[-1][-1] <= 3:
+                    groups[-1].append(ix)
+                else:
+                    groups.append([ix])
+            for g_no, group in enumerate(groups):
+                block_end = groups[g_no + 1][0] if g_no + 1 < len(groups) else len(lines)
+                self_lines = lines[:block_end]
+                _parse_block(rec, self_lines, group, pi, tube_prefix)
+    finally:
+        doc.close()
+    return rec
+
+
+def _parse_block(
+    rec: ChartRecord, lines: list[str], hdr_idx: list[int], pi: int, tube_prefix: str
+) -> None:
+    if True:
+        if True:
             cols = [_RATING_HDR.match(lines[i]).group("r") + " Hr" for i in hdr_idx]
             if not rec.rating_columns:
                 rec.rating_columns = cols
             n = len(cols)
-            pre = lines[: hdr_idx[0]]
+            pre = lines[max(0, hdr_idx[0] - 14) : hdr_idx[0]]
             has_metric = any(re.search(r"Metric", ln) for ln in pre)
             has_md = any(re.fullmatch(r"M/D", ln) for ln in pre)
             has_hpa = any(re.fullmatch(r"Hp/A", ln, re.IGNORECASE) for ln in pre)
@@ -157,6 +181,17 @@ def parse_chart_pdf(path: str | Path) -> ChartRecord:
             if wd_hdr and not rec.factor_kind:
                 rec.factor_kind = wd_hdr.upper()
             has_wall = any(re.fullmatch(r"Wall\s*Thk\.?", ln, re.IGNORECASE) for ln in pre)
+            joist_layout = any(re.fullmatch(r"Joist", ln, re.IGNORECASE) for ln in pre) and any(
+                re.search(r"Approx", ln) for ln in pre
+            )
+            has_desig = any(re.fullmatch(r"(?:ASTM\s*)?Desig\.?(?:\s*Weight)?", ln) for ln in pre)
+            wd_indexed = has_wd and not has_desig and not has_wall and not joist_layout
+            pipe_layout = has_wall and any(
+                re.search(r"Nominal\s*Dia", ln, re.IGNORECASE) for ln in pre
+            )
+            pipe_prefix = (
+                "XSP" if re.search(r"extra strong", " ".join(pre), re.IGNORECASE) else "SP"
+            )
             i = hdr_idx[-1] + 1
             section = None
             family: str | None = None
@@ -173,7 +208,101 @@ def parse_chart_pdf(path: str | Path) -> ChartRecord:
                     continue
                 j = i + 1
                 label = None
-                if has_wall and _TUBE_FAMILY.match(ln):
+                if joist_layout and _JOIST.match(ln):
+                    label = ln.upper()
+                    family = label
+                    # joist charts: Depth (in.) and Approx. Wt columns precede the thicknesses
+                    depth_v = float(lines[j]) if j < len(lines) and _floatish(lines[j]) else None
+                    j += 1 if depth_v is not None else 0
+                    wt_v = float(lines[j]) if j < len(lines) and _floatish(lines[j]) else None
+                    j += 1 if wt_v is not None else 0
+                    vals = []
+                    while j < len(lines) and len(vals) < n and _THK.match(lines[j]):
+                        vals.append(lines[j])
+                        j += 1
+                    if len(vals) < n:
+                        rec.notes.append(
+                            f"p{pi + 1}: row '{label}' has {len(vals)} of {n} thickness cells"
+                        )
+                        i = j
+                        continue
+                    rec.rows.append(
+                        ChartRow(
+                            pi + 1,
+                            section,
+                            label,
+                            label,
+                            label,
+                            wt_v,
+                            None,
+                            depth_v,
+                            None,
+                            vals,
+                            [
+                                None
+                                if v.upper().startswith("N")
+                                else frac_in(v.rstrip("+#*").replace("  ", "-").replace(" ", "-"))
+                                for v in vals
+                            ],
+                            [v.upper().startswith("N") for v in vals],
+                        )
+                    )
+                    i = j
+                    continue
+                if wd_indexed and _floatish(ln) and j < len(lines):
+                    # table keyed by W/D value: W/D | M/D | Hp/A | ratings
+                    wd_v = float(ln)
+                    md_v = (
+                        float(lines[j])
+                        if has_md and j < len(lines) and _floatish(lines[j])
+                        else None
+                    )
+                    j += 1 if md_v is not None else 0
+                    hpa_v = (
+                        float(lines[j])
+                        if has_hpa and j < len(lines) and _floatish(lines[j])
+                        else None
+                    )
+                    j += 1 if hpa_v is not None else 0
+                    vals = []
+                    while j < len(lines) and len(vals) < n and _THK.match(lines[j]):
+                        vals.append(lines[j])
+                        j += 1
+                    if len(vals) < n:
+                        i = j if j > i + 1 else i + 1
+                        continue
+                    rec.rows.append(
+                        ChartRow(
+                            pi + 1,
+                            section,
+                            f"W/D {wd_v}",
+                            None,
+                            f"W/D {wd_v}",
+                            wd_v,
+                            None,
+                            md_v,
+                            hpa_v,
+                            vals,
+                            [
+                                None if v.upper().startswith("N") else frac_in(v.rstrip("+#*"))
+                                for v in vals
+                            ],
+                            [v.upper().startswith("N") for v in vals],
+                        )
+                    )
+                    i = j
+                    continue
+                if (
+                    pipe_layout
+                    and _floatish(ln)
+                    and j < len(lines)
+                    and re.fullmatch(r"\d*\.\d+", lines[j])
+                ):
+                    family = f"{pipe_prefix} {ln}"
+                    prefix = family
+                    label = f"{prefix} x {lines[j]}"
+                    j += 1
+                elif has_wall and _TUBE_FAMILY.match(ln):
                     tf = _TUBE_FAMILY.match(ln)
                     family = f"{tube_prefix} {tf.group('a')} x {tf.group('b')}"
                     prefix = family
@@ -191,6 +320,12 @@ def parse_chart_pdf(path: str | Path) -> ChartRecord:
                     and _floatish(lines[j])
                 ):
                     label = f"{prefix} x {ln}"
+                elif _FAMILY_OPEN.match(ln) and j < len(lines) and _NUMBER.match(lines[j]):
+                    fo = _FAMILY_OPEN.match(ln)
+                    prefix = f"{fo.group('fam').upper()}{fo.group('depth')}"
+                    family = f"{prefix} x {lines[j]}"
+                    label = family
+                    j += 1
                 elif _FAMILY.match(ln):
                     family = ln
                     prefix = _family_prefix(ln)
@@ -253,14 +388,16 @@ def parse_chart_pdf(path: str | Path) -> ChartRecord:
                         md,
                         hpa,
                         vals,
-                        [None if v.upper().startswith("N") else frac_in(v) for v in vals],
+                        [
+                            None
+                            if v.upper().startswith("N")
+                            else frac_in(re.sub(r"\s+", "-", v.rstrip("+#*")))
+                            for v in vals
+                        ],
                         [v.upper().startswith("N") for v in vals],
                     )
                 )
                 i = j
-    finally:
-        doc.close()
-    return rec
 
 
 def write_chart(rec: ChartRecord, out_dir: str | Path) -> Path:
