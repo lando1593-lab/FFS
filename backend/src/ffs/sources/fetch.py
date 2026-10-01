@@ -171,6 +171,8 @@ def fetch_all(
         )
         if ext == ".jpe":
             ext = ".jpg"
+        if ext in (".bin", ".octet-stream") or not ext:
+            ext = _sniff_extension(data) or ".bin"
         folder = (
             library / re.sub(r"[^A-Za-z0-9_-]+", "_", src.get("manufacturer") or "misc") / src["id"]
         )
@@ -189,6 +191,23 @@ def fetch_all(
         results.append(res)
         _append(manifest, res)
     return results
+
+
+def _sniff_extension(data: bytes) -> str | None:
+    """Extension from the file's own magic bytes, for servers that send octet-stream and
+    extension-less URLs (Tremco CPG, Jotun). Only unambiguous signatures are mapped."""
+    if data.startswith(b"%PDF"):
+        return ".pdf"
+    if data.startswith(b"PK\x03\x04"):
+        head = data[:4000]
+        if b"word/" in head:
+            return ".docx"
+        if b"xl/" in head:
+            return ".xlsx"
+        return ".zip"
+    if data.startswith(b"\xd0\xcf\x11\xe0"):
+        return ".doc"  # legacy OLE container (doc/xls); recorded as .doc, content decides later
+    return None
 
 
 def _append(manifest: Path, res: FetchResult) -> None:

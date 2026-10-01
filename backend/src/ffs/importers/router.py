@@ -38,7 +38,8 @@ def sniff(path: str | Path) -> tuple[str, str]:
         return "scanned", first
     if (
         re.search(r"GCP\s+APPLIED\s+TECHNOLOGIES", first, re.IGNORECASE)
-        and re.search(r"\b\d(?:\.\d)?\s*hr\b", first, re.IGNORECASE)
+        and re.search(r"\b\d(?:\.\d)?\s*-?\s*(?:hr|hour)s?\b", first, re.IGNORECASE)
+        and re.search(r"W/D|A/P|\bSize\b|\bMember\b", first)  # a thickness table, not a flowchart
         and "UL Product iQ" not in first
     ):
         return "gcp_chart", all_text
@@ -126,6 +127,17 @@ def route_file(path: str | Path, out_dir: str | Path) -> RouteResult:
         )
 
 
+def _is_pdf(path: Path) -> bool:
+    """A PDF by extension, or by magic bytes for files stored without one (.bin)."""
+    if path.suffix.lower() == ".pdf":
+        return True
+    try:
+        with path.open("rb") as f:
+            return f.read(4) == b"%PDF"
+    except OSError:
+        return False
+
+
 def route_manifest(
     manifest: str | Path, library: str | Path, out_dir: str | Path, url_filter: str = ""
 ) -> list[RouteResult]:
@@ -146,7 +158,7 @@ def route_manifest(
     for url, r in sorted(stored.items()):
         if url_filter and url_filter not in url:
             continue
-        if not r["stored_path"].lower().endswith(".pdf"):
+        if not _is_pdf(library / r["stored_path"]):
             continue
         res = route_file(library / r["stored_path"], out_dir)
         res.path = url

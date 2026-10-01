@@ -11,7 +11,12 @@
     "www.aisc.org", "www.nfca-online.org", "www.awci.org",
     "msds.carboline.com", "javapublic1.rpmsfa.com", "www.carboline-me.com",
     "www.paintdocs.com", "protectiveeu.sherwin-williams.com", "pages.s-w.com",
-    "ca.gcpat.com", "th.gcpat.com", "gcpat.uk", "gcpat.hk", "gcpat.com.au", "gcpat.in", "beta.gcpat.com"
+    "ca.gcpat.com", "th.gcpat.com", "gcpat.uk", "gcpat.hk", "gcpat.com.au", "gcpat.in", "beta.gcpat.com",
+    "www.ppg.com", "dam-cdn.ppg.com", "max.ppg.com",
+    "international.brand.akzonobel.com", "prdakzopreloadersa.blob.core.windows.net",
+    "files-ask.hilti.com", "www.hilti.ca",
+    "albi.com", "www.albi.com", "assets.cpg-europe.com", "www.promat.com", "media.promat.com",
+    "www.hempel.com", "www.jotun.com", "jotundatasheetsprod.blob.core.windows.net"
   ],
   "_host_notes": {
     "msds.carboline.com": "Carboline (RPM) document servlet: PDS, SDS, UL printouts. TLS needs OpenSSL legacy renegotiation (OPENSSL_CONF with UnsafeLegacyServerConnect).",
@@ -22,7 +27,15 @@
     "www.paintdocs.com": "Sherwin-Williams document server; extension-less URLs that return application/pdf.",
     "gcpat.com": "HTML pages are challenge-gated and never fetched; PDFs under /sites/gcpat.com/files/ are served.",
     "ca.gcpat.com": "GCP Canada; some PDFs answer 200 although HTML answers 403.",
-    "iq.ulprospector.com": "NEVER fetched: login and terms forbid automated retrieval; UL designs are pulled by a person."
+    "iq.ulprospector.com": "NEVER fetched: login and terms forbid automated retrieval; UL designs are pulled by a person.",
+    "beta.gcpat.com": "GCP's own staging host; serves the same /sites/default/files/ documents as gcpat.com without the challenge.",
+    "www.ppg.com": "PPG PMC catalogue (www.ppgpmc.com redirects here); product pages embed DAM links on dam-cdn.ppg.com / max.ppg.com.",
+    "buyat.ppg.com": "NOT allowed: PPG SDS server refuses non-browser clients (SDS are a manual download).",
+    "international.brand.akzonobel.com": "AkzoNobel DAM for International Paint TDS and guides; robots allows all.",
+    "files-ask.hilti.com": "Hilti-owned attachment bucket behind the Ask Hilti engineering Q&A pages.",
+    "productdata.hilti.com": "NOT allowed: robots.txt Disallow /APQ_HC_RAW/ (the host behind Hilti's Download buttons); listed for manual download.",
+    "cp.jotun.com": "NOT allowed: robots.txt Disallow: /; Jotun DoPs and brochures are a manual download.",
+    "www.hempel.com": "Product pages allowed; the /api/ PDS endpoint is robots-disallowed and is not fetched (manual download)."
   },
   "sources": [
     {"id": "isolatek-cafco-400-tds", "manufacturer": "Isolatek", "product": "CAFCO 400", "kind": "product_data", "url": null, "notes": "C-TDS; copy dated 10-19 in hand"},

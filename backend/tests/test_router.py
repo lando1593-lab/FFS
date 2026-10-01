@@ -95,3 +95,57 @@ def test_real_charts_route_as_isolatek_chart(rel, tmp_path):
     assert sniff(f)[0] == "isolatek_chart"
     res = route_file(f, tmp_path / "out")
     assert res.kind == "isolatek_chart" and res.rows > 100 and res.error is None
+
+
+def test_route_manifest_accepts_pdf_stored_without_extension(tmp_path):
+    """Extension-less document URLs (Tremco CPG, Jotun) are stored as .bin; the bytes decide."""
+    import json
+
+    from ffs.importers.router import _is_pdf, route_manifest
+
+    lib = tmp_path / "lib"
+    (lib / "Nullifire" / "x").mkdir(parents=True)
+    f = lib / "Nullifire" / "x" / "abc.bin"
+    f.write_bytes(b"%PDF-1.4\n%%EOF\n")
+    (lib / "Nullifire" / "x" / "page.bin").write_bytes(b"<html>")
+    assert _is_pdf(f) and not _is_pdf(lib / "Nullifire" / "x" / "page.bin")
+    rows = [
+        {
+            "status": "fetched",
+            "url": "https://assets.cpg-europe.com/cms/r/1",
+            "stored_path": "Nullifire/x/abc.bin",
+        },
+        {
+            "status": "fetched",
+            "url": "https://assets.cpg-europe.com/cms/r/2",
+            "stored_path": "Nullifire/x/page.bin",
+        },
+    ]
+    (lib / "manifest.jsonl").write_text("\n".join(json.dumps(r) for r in rows) + "\n")
+    res = route_manifest(lib / "manifest.jsonl", lib, tmp_path / "out")
+    assert [r.path for r in res] == ["https://assets.cpg-europe.com/cms/r/1"]
+
+
+def test_gcp_flowchart_is_not_a_chart(tmp_path):
+    import pymupdf
+
+    from ffs.importers.router import sniff
+
+    f = tmp_path / "flow.pdf"
+    doc = pymupdf.open()
+    p = doc.new_page()
+    y = 40
+    for ln in [
+        "GCP APPLIED TECHNOLOGIES",
+        "Assembly",
+        "Beam",
+        "Joist",
+        "Fluted/Cellular 1hr & 1 1/2hr (e)",
+        "D743",
+        "N706",
+    ]:
+        p.insert_text((40, y), ln, fontsize=8)
+        y += 11
+    doc.save(f)
+    doc.close()
+    assert sniff(f)[0] == "other"

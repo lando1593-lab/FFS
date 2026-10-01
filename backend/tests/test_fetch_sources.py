@@ -84,3 +84,13 @@ def test_fetch_registry_rules(tmp_path):
         assert sum(1 for x in lines if x["id"] == "ok-doc") == 3
     finally:
         srv.shutdown()
+
+
+def test_sniff_extension_from_magic_bytes():
+    from ffs.sources.fetch import _sniff_extension
+
+    assert _sniff_extension(b"%PDF-1.7 ...") == ".pdf"
+    assert _sniff_extension(b"PK\x03\x04" + b"x" * 10 + b"word/document.xml") == ".docx"
+    assert _sniff_extension(b"PK\x03\x04" + b"x" * 10 + b"xl/workbook.xml") == ".xlsx"
+    assert _sniff_extension(b"PK\x03\x04" + b"nothing") == ".zip"
+    assert _sniff_extension(b"<html>") is None
