@@ -89,3 +89,52 @@ The sample bid lists HSS5X5X3/8 columns at 9/16 in. for 1 hour under X790. X790 
 (certain) The two conventions give different thicknesses for the same member under the same
 design. Which one the listing intends is a domain question for the estimator and the
 manufacturer, and the engine must record which convention it used on every HSS/pipe result.
+
+## Second collection run (2026-10-01, per-manufacturer collectors; "GCP, Carboline and any manufacturer is non-negotiable")
+Method: one collector per manufacturer, each restricted to the manufacturer's own hosts, honouring
+robots.txt, sending ordinary browser headers under the project's own user agent, never passing a
+bot challenge, never logging in, pacing requests, confirming every URL with a HEAD/GET before it
+entered a registry, then fetching through `ffs fetch-sources` so every file carries the manifest
+provenance (URL, time, ETag, SHA-256, content type). Registries live in
+`data/reference_library/registries/<manufacturer>.json`; the confirmed hosts were added to the
+shipped allowlist in `backend/src/ffs/sources/registry.json` with a note per host.
+
+| Manufacturer | Fetched | Hosts | What it is | Not fetched, and why |
+|---|---|---|---|---|
+| GCP (MONOKOTE) | 195 documents | gcpat.com file paths; regional gcpat.in / .uk / .hk / .com.au / th. / ca. / beta. | **76 per-design thickness charts** (D739…Y724, 30 designs, 2016–2023 revisions), **59 UL printouts** from the current UL site (2024), 3 consolidated "UL Designs & Thickness" indexes (columns / floor / roof), design flowcharts, MK-6/HY, MK-10 HB, Z-106, Z-146, Z-156, Z-3306 data sheets, SDS, application guides | gcpat.com HTML pages are challenge-gated and were never requested; two file links answered 404 |
+| Carboline | 123 documents | www.carboline.com, msds.carboline.com (RPM servlet, legacy TLS), javapublic1.rpmsfa.com, carboline-me.com | Product data sheets for every fireproofing product (Pyrocrete 239/241/241 HY/341/40, Pyrolite 15/22, Southwest 5GP/5MD/5AR/7GP/7HD/7TB/DK3, Thermo-Sorb 263/VOC/HB, Thermo-Lag 3000-P/SP, Pyroclad X1, A/D Firefilm III/III C, Firefilm IV), primer and topcoat lists (commercial and industrial, 2025–2026), Southwest UL design flowcharts (2019), the Simplified Guide to Fire Resistance Ratings (2022), UL evaluation report ER8213-01, three Thermo-Sorb HB UL printouts (N663, Y677, Y678), yield and density charts, application guides, specifications | **97 documents on carboline.canto.com** (robots.txt `Disallow: /`): the per-design UL and Intertek listings for Firefilm III/IV, Pyrocrete 40, Thermo-Lag 3000, Thermo-Sorb 263/VOC, Pyroclad X1 and the Southwest selector. Listed for one-click manual download (below) |
+| Sherwin-Williams (FIRETEX) | 47 documents | industrial.sherwin-williams.com, paintdocs.com, protectiveeu.sherwin-williams.com, pages.s-w.com, icc-es.org | FIRETEX FX5090 / FX5120 / FX6002 / FX6010 / FX7002 / FX9502 data sheets (2025–2026 revisions), application manuals, approved primer and topcoat guides, ICC-ES ESR-4766 and ESR-4767 | Sherwin-Williams publishes no per-design thickness PDFs; the data sheets only cite the UL designs (D981, N636, Y623, Y624, N627, Y606, Y660, Y664, D994, N642, Y635, Y636). Those are pulled by a person from UL |
+| Isolatek | 529 documents | isolatek.com | see the first run; re-fetched under unique ids | — |
+| PPG, Hilti, AkzoNobel (International), Nullifire and others | not run | — | — | the collectors were cut off by the account's monthly spend limit; the workflow resumes from cache when re-run |
+
+### Human-assisted import (the robots-disallowed host)
+`ffs manual-list` writes `manual_downloads.html` (one link per document, grouped by manufacturer
+and product, with the file name to save) and a CSV; `ffs import-manual <folder>` files the saved
+copies under the same library layout and appends manifest rows with `method: manual`, the
+`manual_url`, the SHA-256 and the time. A file whose name matches no registry entry is reported
+and left alone. The Carboline list is committed at `docs/downloads/carboline-manual-downloads.html`.
+
+### Parsing coverage after this run (`ffs reference-coverage`)
+- **GCP charts**: all 76 parse with the positional parser (`importers/gcp_chart.py`): 42,466 rows
+  across 30 designs, two column groups where printed (normal-weight / lightweight concrete fill,
+  full / half flange tip), tube and pipe tables keyed by nominal size, wall and A/P, and the
+  generic "Other" rows keyed by section factor alone. 58 notes in total, every one naming the
+  page and the printed cells (blank cells, a header-less continuation page, seven rows on Y724
+  whose first cell is a section factor printed in the thickness column and which are therefore
+  skipped rather than stored). 37 of the older-template charts print no revision date; the
+  record carries `None`, not a guess.
+- **GCP consolidated indexes and flowcharts**, Carboline's Simplified Guide and Southwest
+  flowcharts: design selectors (assembly description → design number), not thickness tables.
+  They are fetched and routed as `other`; a selector parser is a later step.
+- **Carboline yield charts** (Southwest 5MD/7GP/7HD/7TB): density, water and yield tables for the
+  material engine (Milestone 4), not thickness.
+- **UL printouts from the current UL site** (59 GCP, 3 Carboline): a different page layout from
+  the 2019–2020 printouts the parser was built on; parser extension in progress, counts to follow.
+
+### Caveats that stay on the record
+- Regional GCP hosts serve some documents the US site does not; each record carries its URL, so
+  a Canadian or UK copy is never mistaken for the US edition.
+- msds.carboline.com negotiates TLS with legacy renegotiation; the fetch needs an OpenSSL
+  configuration that allows `UnsafeLegacyServerConnect`. The registry note records this.
+- Chart rows for tubes and pipes carry the printed nominal size and wall; the AISC canonical
+  designation (`HSS6X4X1/4`) is not derived yet, so `canonical` is `None` on those rows.
