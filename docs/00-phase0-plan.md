@@ -28,7 +28,7 @@ every later milestone depends on, the LaCie inventory tool, and a first vertical
 | 18 | Manufacturer collection run 2: GCP 195 docs (76 thickness charts, 59 UL printouts), Carboline 123 docs (+97 listed for manual download), Sherwin-Williams 47 docs; confirmed hosts allow-listed | Done; PPG/Hilti/Akzo/others not run (spend limit) | `docs/research/E-…`, `data/reference_library/registries/` |
 | 19 | GCP MONOKOTE chart parser (positional, two-group) | Done; 76/76 charts, 42,466 rows, 30 designs | `backend/src/ffs/importers/gcp_chart.py` |
 | 20 | Human-assisted import (`manual-list`, `import-manual`) and per-manufacturer coverage report (`reference-coverage`) | Done | `backend/src/ffs/sources/manual.py`, `backend/src/ffs/importers/coverage.py`, `docs/downloads/` |
-| 21 | Parser extensions from the real library: intumescent decimal tables and `T=k/(W/D)` equations, A/P pipe-tube tables, joist and AISC/metric chart layouts, generic 300-series charts | Done; 302 Isolatek charts with rows (0 without), 69,535 rows; 59 of 104 UL printouts with tables or equations | `backend/src/ffs/importers/` |
+| 21 | Parser extensions from the real library: intumescent decimal tables and `T=k/(W/D)` equations, A/P pipe-tube tables, joist and AISC/metric chart layouts, generic 300-series charts | Done; 302 Isolatek charts with rows (0 without), 69,535 rows; 110 of 163 UL printouts (incl. the current-site 2025 layout) with tables or equations | `backend/src/ffs/importers/` |
 | 13 | One-command local LaCie inventory bootstrap | Done (macOS/Linux `run.sh`, Windows `run.ps1`); tool under adversarial review | `tools/lacie_inventory/` |
 
 ## Environment (this session)

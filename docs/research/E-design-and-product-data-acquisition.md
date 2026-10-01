@@ -128,8 +128,17 @@ and left alone. The Carboline list is committed at `docs/downloads/carboline-man
   They are fetched and routed as `other`; a selector parser is a later step.
 - **Carboline yield charts** (Southwest 5MD/7GP/7HD/7TB): density, water and yield tables for the
   material engine (Milestone 4), not thickness.
-- **UL printouts from the current UL site** (59 GCP, 3 Carboline): a different page layout from
-  the 2019–2020 printouts the parser was built on; parser extension in progress, counts to follow.
+- **UL printouts from the current UL site** (59 GCP, 3 Carboline, 2025 layout): the parser now
+  reads them (no page furniture at all, tables keyed by Hp/A alone, "Rating Period (hr)" and
+  "30 min … 180 min" heads, linear `T = a·(Hp/A) + b` equation tables with ranges printed high
+  to low and kept that way with a note). Library-wide: **110 of 163 UL printouts yield tables or
+  equations**; the rest are wall, board and exterior designs whose thickness is stated in item
+  text, which is captured. The 528 Isolatek records were re-checked count-for-count against the
+  previous parser (no change beyond completed wrapped manufacturer lines and the reproduction
+  notice); one GCP design (X854) had a W/D printed as "1" mis-read as a thickness before and is
+  now right.
+- **Library total after this run**: 887 documents routed; 302 Isolatek charts (69,535 rows) and
+  78 GCP charts (42,466 rows); 163 UL printouts.
 
 ### Caveats that stay on the record
 - Regional GCP hosts serve some documents the US site does not; each record carries its URL, so

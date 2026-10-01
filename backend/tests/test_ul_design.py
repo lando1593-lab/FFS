@@ -924,3 +924,625 @@ def test_bare_fraction_ratings_and_inches_header():
     assert t.rating_columns == ["1/2 Hr", "3/4 Hr", "1 Hr", "1-1/2 Hr", "2 Hr"] and t.units == "in"
     assert t.rows[0].cells == ["W8x10", "0.33", "0.063", "0.109", "0.154", "N/A", "N/A"]
     assert t.rows[0].values_in == [0.063, 0.109, 0.154, None, None]
+
+
+# --- current Product iQ site (2025 printouts, Carboline Y677 layout): a site banner and the UL
+# usage disclaimer before "Design No.", no per-page header/footer, a linear equation table
+# "T =((a*Hp/A) + b)", bare "Rating Period (hr)" heads, a size table whose W/D may print as "1",
+# an Hp/A-keyed metric table with no member sizes, a wrapped manufacturer line and UL Solutions'
+# notices after "Last Updated"
+CURRENT_SITE_COLUMN = """Coming October 20th, discover our sleek new design and powerful features. Learn More
+ⓘ
+Design/System/Construction/Assembly Usage Disclaimer
+Authorities Having Jurisdiction should be consulted in all cases as to the particular requirements covering the installation
+and use of UL Certified products, equipment, system, devices, and materials.
+Only products which bear UL's Mark are considered Certified.
+BXUV - Fire Resistance Ratings - ANSI/UL 263 Certified for United States
+See General Information for Fire-resistance Ratings - ANSI/UL 263 Certified for United States
+Design Criteria and Allowable Variances
+Design No. Y994
+August 22, 2025
+\xa0
+Ratings - 1/2, 3/4, 1, 1-1/2, 2, 2-1/2, 3 and 3-1/2 Hr. (See Item 2)
+* Indicates such products shall bear the UL or cUL Certification Mark for jurisdictions employing the UL or cUL
+Certification (such as Canada), respectively.
+
+1. Steel Column — Wide flange steel columns with the minimum sizes shown in the tables below.
+2. Mastic & Intumescent Coating* — Coating spray or brush applied in accordance with the manufacturer's instructions at the minimum
+average dry thickness shown in the table below.
+As an alternate to the table below, the required thickness of coating (in mm) to be applied to surfaces of Wide-Flange columns may be
+determined from the equations listed below. The equations may only be used for the indicated hourly rating, and for the corresponding listed
+ranges of thickness and Hp/A.
+
+Hourly
+Rating
+Thickness Equation
+(mm)
+Thickness Range
+(mm)
+Hp/A Section
+Factor Range
+1
+T =((0.0008*Hp/A) + 3.5825)
+3.92 - 3.83
+406 - 298
+1
+T =((0.0142*Hp/A) - 0.4131)
+3.83 - 1.86
+298 - 160
+2
+T =((0.0283*Hp/A) + 0.5201
+8.94 - 2.02
+298 - 53
+Size
+W/D
+Required Thickness (inches)
+Rating Period (hr)
+1/2
+3/4
+1
+1-1/2
+2
+2-1/2
+3
+3-1/2
+W8x10
+0.33
+0.063
+0.109
+0.154
+N/A
+N/A
+N/A
+N/A
+N/A
+W18x65
+1
+0.038
+0.038
+0.060
+0.113
+0.170
+N/A
+N/A
+N/A
+
+W14x233
+2.55
+0.018
+0.018
+0.019
+0.048
+0.080
+0.111
+0.143
+0.175
+Hp/A
+Required Thickness (mm)
+Rating Period (hr)
+1/2
+3/4
+1
+1-1/2
+2
+2-1/2
+3
+3-1/2
+406
+1.6
+2.76
+3.92
+N/A
+N/A
+N/A
+N/A
+N/A
+140
+1
+1
+1.61
+2.98
+4.48
+N/A
+N/A
+N/A
+53
+0.47
+0.47
+0.47
+1.22
+2.02
+2.83
+3.63
+4.44
+CARBOLINE GLOBAL INC — Thermo-Sorb HB, INVESTIGATED FOR INTERIOR GENERAL PURPOSE, INTERIOR CONDITIONED SPACE and
+EXTERIOR ENVIRONMENTAL
+* Indicates such products shall bear the UL or cUL Certification Mark for jurisdictions employing the UL or cUL
+Certification (such as Canada), respectively.
+Last Updated on 2025-08-22
+The appearance of a company's name or product in this database does not in itself assure that products so identified have been
+manufactured under UL Solutions' Follow - Up Service.
+UL Solutions permits the reproduction of the material contained in Product iQ subject to the following conditions: 1. The Guide Information,
+Assemblies, Constructions, Designs, Systems, and/or Certifications (files) must be presented in their entirety and in a non-misleading manner,
+without any manipulation of the data (or drawings).
+"""
+
+
+def test_current_site_header_boilerplate_and_linear_equation_table():
+    rec = parse_design_text(CURRENT_SITE_COLUMN)
+    assert rec.design_no == "Y994" and rec.member_category_guess == "column"
+    assert rec.design_date == "August 22, 2025" and rec.last_updated == "2025-08-22"
+    # the current site prints no print date, URL or page number: nothing is invented
+    assert rec.snapshot_date is None and rec.source_url is None
+    assert rec.ratings[0].hours == [0.5, 0.75, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5]
+    assert rec.ratings[0].see == "See Item 2"
+    assert [it.no for it in rec.items] == ["1", "2"] and rec.items[1].is_intumescent
+    assert rec.unparsed == []  # the banner and the usage disclaimer are not design content
+    assert "Coming October" not in rec.items[0].text and "Disclaimer" not in rec.items[0].text
+    assert rec.reproduction_notice.startswith("UL Solutions permits the reproduction")
+    (mfr,) = rec.items[1].manufacturers
+    assert mfr.name == "CARBOLINE GLOBAL INC"
+    assert mfr.text == (
+        "Thermo-Sorb HB, INVESTIGATED FOR INTERIOR GENERAL PURPOSE, INTERIOR CONDITIONED SPACE "
+        "and EXTERIOR ENVIRONMENTAL"
+    )
+    assert "EXTERIOR ENVIRONMENTAL" not in rec.items[1].text
+    # equations: one record per table row, constants and ranges exactly as printed
+    eqs = rec.equations
+    assert [
+        (e.form, e.a, e.b, e.rating, e.rating_hours, e.wd_range, e.h_range, e.h_units) for e in eqs
+    ] == [
+        ("T = a*(Hp/A) + b", 0.0008, 3.5825, "1", 1.0, (406.0, 298.0), (3.92, 3.83), "mm"),
+        ("T = a*(Hp/A) + b", 0.0142, -0.4131, "1", 1.0, (298.0, 160.0), (3.83, 1.86), "mm"),
+        ("T = a*(Hp/A) + b", 0.0283, 0.5201, "2", 2.0, (298.0, 53.0), (8.94, 2.02), "mm"),
+    ]
+    assert [e.as_printed for e in eqs] == [
+        "T =((0.0008*Hp/A) + 3.5825)",
+        "T =((0.0142*Hp/A) - 0.4131)",
+        "T =((0.0283*Hp/A) + 0.5201",
+    ]
+    assert all(
+        e.item_no == "2"
+        and e.factor == "Hp/A"
+        and e.k is None
+        and e.c is None
+        and e.r_units is None
+        and e.h_range_in is None
+        for e in eqs
+    )
+    assert any("high to low" in n for n in eqs[0].notes) and any(
+        "kept as printed" in n for n in eqs[0].notes
+    )
+    assert any("parentheses unbalanced" in n for n in eqs[2].notes)
+    assert not any("parentheses" in n for n in eqs[0].notes)
+    # tables: the inch size table and the Hp/A-keyed metric table
+    assert len(rec.tables) == 2
+    t_in, t_mm = rec.tables
+    assert t_in.kind == "size_wd" and t_in.units == "in" and t_in.ratio_names == ["W/D"]
+    assert t_in.rating_columns == [
+        "1/2 Hr",
+        "3/4 Hr",
+        "1 Hr",
+        "1-1/2 Hr",
+        "2 Hr",
+        "2-1/2 Hr",
+        "3 Hr",
+        "3-1/2 Hr",
+    ]
+    assert t_in.condition is None  # the "table below" sentence introduced the equations
+    assert [r.canonical for r in t_in.rows] == ["W8X10", "W18X65", "W14X233"]
+    assert t_in.rows[1].cells == [
+        "W18x65",
+        "1",
+        "0.038",
+        "0.038",
+        "0.060",
+        "0.113",
+        "0.170",
+        "N/A",
+        "N/A",
+        "N/A",
+    ]
+    assert t_in.rows[1].wd == 1.0  # W/D printed as a whole number under a declared W/D column
+    assert t_in.rows[2].values_in == [0.018, 0.018, 0.019, 0.048, 0.08, 0.111, 0.143, 0.175]
+    assert t_mm.kind == "ratio_rows" and t_mm.units == "mm" and t_mm.ratio_names == ["Hp/A"]
+    assert t_mm.rating_columns == t_in.rating_columns and t_mm.item_no == "2"
+    assert [r.cells for r in t_mm.rows] == [
+        ["406", "1.6", "2.76", "3.92", "N/A", "N/A", "N/A", "N/A", "N/A"],
+        ["140", "1", "1", "1.61", "2.98", "4.48", "N/A", "N/A", "N/A"],
+        ["53", "0.47", "0.47", "0.47", "1.22", "2.02", "2.83", "3.63", "4.44"],
+    ]
+    assert all(r.label is None and r.canonical is None for r in t_mm.rows)
+    assert [r.wd for r in t_mm.rows] == [406.0, 140.0, 53.0]
+    assert t_mm.rows[1].values == [1.0, 1.0, 1.61, 2.98, 4.48, None, None, None]
+    assert t_mm.rows[1].values_in == [None] * 8
+
+
+# --- current site, beam design (N663 layout): an all-caps title over an Hp/A-keyed metric table
+# whose column heads name the units ("1 Hr., MM"), then the inch copy ("Beam | W/D | 1 Hr., IN")
+# with no title of its own; no equation is printed
+CURRENT_SITE_BEAM = """Design No. N994
+August 22, 2025
+\xa0
+Restrained Beam Rating — 1 and 2 Hr (See Item 7)
+Unrestrained Beam Rating — 1 and 2 Hr (See Item 7)
+1. Steel Beam — Min size as shown in the table below (See Item 7). Maximum allowable yield stress of 50 ksi.
+7. Mastic and Intumescent Coating* — Coating spray or brush applied in accordance with the manufacturer's instructions at the minimum
+average dry thickness shown in the table below. The thickness shown in the table is intumescent only.
+UNRESTRAINED BEAM RATINGS
+Hp/A
+1 Hr., MM
+1-1/2 Hr., MM
+2 Hr., MM
+2-1/2 Hr., MM
+3 Hr., MM
+253
+1.51
+3.24
+4.96
+6.69
+8.41
+
+250
+1.50
+3.21
+4.92
+6.64
+8.41
+
+Beam
+W/D
+1 Hr., IN
+1-1/2 Hr., IN
+2 Hr., IN
+2-1/2 Hr., IN
+3 Hr., IN
+W6x12
+0.53
+0.060
+0.128
+0.195
+0.263
+0.331
+W8x67
+1.65
+0.019
+0.081
+0.132
+0.184
+0.331
+RESTRAINED BEAM RATINGS
+\xa0
+Hp/A
+1 Hr., MM
+1-1/2 Hr., MM
+2 Hr., MM
+2-1/2 Hr., MM
+3 Hr., MM
+253
+1.51
+2.63
+4.33
+6.02
+7.71
+CARBOLINE GLOBAL INC — Thermo-Sorb HB, INVESTIGATED FOR INTERIOR GENERAL PURPOSE.
+Last Updated on 2025-08-22
+"""
+
+
+def test_current_site_beam_tables_with_units_in_column_heads():
+    rec = parse_design_text(CURRENT_SITE_BEAM)
+    assert rec.design_no == "N994" and rec.member_category_guess.startswith("floor beam")
+    assert [r.kind for r in rec.ratings] == ["Restrained Beam Rating", "Unrestrained Beam Rating"]
+    assert rec.equations == []
+    assert [(t.kind, t.units, t.ratio_names, len(t.rows), t.condition) for t in rec.tables] == [
+        ("ratio_rows", "mm", ["Hp/A"], 2, "UNRESTRAINED BEAM RATINGS"),
+        ("size_wd", "in", ["W/D"], 2, "UNRESTRAINED BEAM RATINGS"),
+        ("ratio_rows", "mm", ["Hp/A"], 1, "RESTRAINED BEAM RATINGS"),
+    ]
+    assert all(
+        t.item_no == "7" and t.rating_columns == ["1 Hr", "1-1/2 Hr", "2 Hr", "2-1/2 Hr", "3 Hr"]
+        for t in rec.tables
+    )
+    t_mm, t_in, t_r = rec.tables
+    assert t_mm.notes[0].startswith("introduced by: average dry thickness shown in the table below")
+    assert t_mm.rows[0].cells == ["253", "1.51", "3.24", "4.96", "6.69", "8.41"]
+    assert t_mm.rows[1].cells[0] == "250"  # page break before the row
+    assert t_mm.rows[0].label is None and t_mm.rows[0].wd == 253.0
+    assert (
+        t_mm.rows[0].values == [1.51, 3.24, 4.96, 6.69, 8.41]
+        and t_mm.rows[0].values_in == [None] * 5
+    )
+    assert t_in.notes[0].startswith("heading carried over")
+    assert [r.canonical for r in t_in.rows] == ["W6X12", "W8X67"]
+    assert t_in.rows[0].wd == 0.53 and t_in.rows[0].values_in == [0.06, 0.128, 0.195, 0.263, 0.331]
+    assert t_r.notes == [] and t_r.rows[0].cells == ["253", "1.51", "2.63", "4.33", "6.02", "7.71"]
+    assert rec.items[-1].manufacturers[0].text == (
+        "Thermo-Sorb HB, INVESTIGATED FOR INTERIOR GENERAL PURPOSE."
+    )
+
+
+# --- current site, tube column design (Y678 layout): "Minimum Required Thickness (mm) for Rating
+# Period" titles, "30 min" column heads, an Hp/A-keyed metric table and an "HSS Tube Size" table
+# with bare labels including a decimal size
+CURRENT_SITE_TUBE = """Design No. Y993
+August 22, 2025
+Ratings - 1/2, 3/4, 1, 1-1/2 2, 2-1/2 and 3 Hr. (See Item 3)
+1. Steel Tube Column — Steel rectangular tube (ST) or pipe (SP) columns with the minimum sizes shown in the tables below.
+3. Mastic & Intumescent Coating* — Coating spray or brush applied in accordance with the manufacturer's instructions at the minimum
+average dry thickness shown in the thickness below. The thickness shown does not include primer thickness.
+\xa0
+Minimum Required Thickness (mm) for Rating Period
+Hp/A
+30 min
+45 min
+60 min
+90 min
+120 min
+150 min
+180 min
+212
+1.29
+3.26
+5.22
+9.15
+N/A
+N/A
+N/A
+65
+0.45
+0.45
+1.16
+2.68
+4.21
+5.73
+7.26
+
+\xa0
+Minimum Required Thickness (in) for Rating Period
+\xa0
+HSS Tube
+Size
+A/P
+30 min
+45 min
+60 min
+90 min
+120 min
+150 min
+180 min
+8x8x3/16
+0.17
+0.051
+0.128
+0.206
+0.360
+N/A
+N/A
+N/A
+3.5x3.5x5/16
+0.27
+0.039
+0.091
+0.162
+0.261
+0.347
+N/A
+N/A
+Last Updated on 2025-08-22
+"""
+
+
+def test_current_site_minute_heads_and_titled_tables():
+    rec = parse_design_text(CURRENT_SITE_TUBE)
+    assert rec.ratings[0].hours == [0.5, 0.75, 1.0, 1.5, 2.0, 2.5, 3.0]
+    assert len(rec.tables) == 2
+    t_mm, t_in = rec.tables
+    cols = ["30 min", "45 min", "60 min", "90 min", "120 min", "150 min", "180 min"]
+    assert t_mm.kind == "ratio_rows" and t_mm.rating_columns == cols and t_mm.units == "mm"
+    assert t_mm.condition == "Minimum Required Thickness (mm) for Rating Period"
+    assert t_mm.ratio_names == ["Hp/A"] and t_mm.item_no == "3" and t_mm.notes == []
+    assert [r.cells for r in t_mm.rows] == [
+        ["212", "1.29", "3.26", "5.22", "9.15", "N/A", "N/A", "N/A"],
+        ["65", "0.45", "0.45", "1.16", "2.68", "4.21", "5.73", "7.26"],
+    ]
+    assert t_mm.rows[0].values == [1.29, 3.26, 5.22, 9.15, None, None, None]
+    assert t_in.kind == "size_wd" and t_in.rating_columns == cols and t_in.units == "in"
+    assert t_in.condition == "Minimum Required Thickness (in) for Rating Period"
+    assert t_in.ratio_names == ["A/P"] and t_in.notes == []
+    assert [r.label for r in t_in.rows] == ["8x8x3/16", "3.5x3.5x5/16"]
+    assert t_in.rows[0].canonical == "HSS8X8X3/16" and t_in.rows[1].canonical.startswith("HSS3.5")
+    assert t_in.rows[0].wd == 0.17 and t_in.rows[0].values_in == [
+        0.051,
+        0.128,
+        0.206,
+        0.36,
+        None,
+        None,
+        None,
+    ]
+    assert t_in.rows[1].cells == [
+        "3.5x3.5x5/16",
+        "0.27",
+        "0.039",
+        "0.091",
+        "0.162",
+        "0.261",
+        "0.347",
+        "N/A",
+        "N/A",
+    ]
+
+
+# --- real current-site printouts hosted by Carboline (git-ignored); skipped when absent
+CARBOLINE = REF / "fetched" / "Carboline"
+N663_PDF = (
+    CARBOLINE / "carboline-thermo-sorb-hb-bxuv-n663-ul-product-iq-a43069" / "5f1912ed8381.pdf"
+)
+Y677_PDF = (
+    CARBOLINE / "carboline-thermo-sorb-hb-bxuv-y677-ul-product-iq-21ba17" / "29f4ee58958e.pdf"
+)
+Y678_PDF = (
+    CARBOLINE / "carboline-thermo-sorb-hb-bxuv-y678-ul-product-iq-ff6177" / "e9e9e93be070.pdf"
+)
+THERMO_SORB_MFR = (
+    "Thermo-Sorb HB, INVESTIGATED FOR INTERIOR GENERAL PURPOSE, INTERIOR CONDITIONED SPACE and "
+    "EXTERIOR ENVIRONMENTAL"
+)
+
+
+def test_real_n663():
+    if not N663_PDF.exists():
+        pytest.skip("reference library not present")
+    rec = parse_design_pdf(N663_PDF)
+    assert rec.design_no == "N663" and rec.design_date == "August 22, 2025"
+    assert rec.last_updated == "2025-08-22" and rec.snapshot_date is None
+    assert rec.source_url is None and rec.unparsed == []
+    assert [(r.kind, r.hours, r.see) for r in rec.ratings] == [
+        ("Restrained Beam Rating", [1.0, 2.0], "See Item 7"),
+        ("Unrestrained Beam Rating", [1.0, 2.0], "See Item 7"),
+    ]
+    assert [it.no for it in rec.items] == ["1", "2", "3", "4", "5", "6", "7"]
+    assert rec.items[6].is_intumescent and rec.items[6].manufacturers[0].text == THERMO_SORB_MFR
+    assert rec.equations == []  # N663 prints thickness tables only
+    assert [(t.kind, t.units, t.ratio_names, len(t.rows), t.condition) for t in rec.tables] == [
+        ("ratio_rows", "mm", ["Hp/A"], 36, "UNRESTRAINED BEAM RATINGS"),
+        ("size_wd", "in", ["W/D"], 128, "UNRESTRAINED BEAM RATINGS"),
+        ("ratio_rows", "mm", ["Hp/A"], 36, "RESTRAINED BEAM RATINGS"),
+        ("size_wd", "in", ["W/D"], 128, "RESTRAINED BEAM RATINGS"),
+    ]
+    assert all(
+        t.item_no == "7" and t.rating_columns == ["1 Hr", "1-1/2 Hr", "2 Hr", "2-1/2 Hr", "3 Hr"]
+        for t in rec.tables
+    )
+    u_mm, u_in, r_mm, r_in = rec.tables
+    assert u_mm.rows[0].cells == ["253", "1.51", "3.24", "4.96", "6.69", "8.41"]
+    assert u_mm.rows[0].wd == 253.0 and u_mm.rows[0].values_in == [None] * 5
+    assert u_mm.rows[-1].cells == ["81", "0.48", "2.06", "3.36", "4.67", "8.41"]
+    assert u_in.rows[0].cells == ["W6x12", "0.53", "0.060", "0.128", "0.195", "0.263", "0.331"]
+    assert u_in.rows[0].canonical == "W6X12" and u_in.rows[0].values_in == [
+        0.06,
+        0.128,
+        0.195,
+        0.263,
+        0.331,
+    ]
+    assert u_in.rows[-1].cells == ["W8x67", "1.65", "0.019", "0.081", "0.132", "0.184", "0.331"]
+    assert r_mm.rows[-1].cells == ["81", "0.48", "1.70", "2.85", "4.01", "5.17"]
+    assert r_in.rows[-1].cells == ["W8x67", "1.65", "0.019", "0.067", "0.112", "0.158", "0.203"]
+    assert u_mm.notes[0].startswith("introduced by:") and r_mm.notes == []
+    assert u_in.notes[0].startswith("heading carried over") and r_in.notes[0].startswith(
+        "heading carried over"
+    )
+    assert rec.reproduction_notice.startswith("UL Solutions permits the reproduction")
+
+
+def test_real_y677():
+    if not Y677_PDF.exists():
+        pytest.skip("reference library not present")
+    rec = parse_design_pdf(Y677_PDF)
+    assert rec.design_no == "Y677" and rec.last_updated == "2025-08-22"
+    assert rec.design_date == "August 22, 2025" and rec.snapshot_date is None
+    assert rec.ratings[0].hours == [0.5, 0.75, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5]
+    assert [it.no for it in rec.items] == ["1", "2"]
+    assert rec.items[1].manufacturers[0].text == THERMO_SORB_MFR and rec.unparsed == []
+    cols = ["1/2 Hr", "3/4 Hr", "1 Hr", "1-1/2 Hr", "2 Hr", "2-1/2 Hr", "3 Hr", "3-1/2 Hr"]
+    assert [(t.kind, t.units, t.ratio_names, len(t.rows), t.condition) for t in rec.tables] == [
+        ("size_wd", "in", ["W/D"], 168, None),
+        ("ratio_rows", "mm", ["Hp/A"], 72, None),
+    ]
+    t_in, t_mm = rec.tables
+    assert t_in.rating_columns == cols and t_mm.rating_columns == cols
+    assert t_in.rows[0].cells == ["W8x10", "0.33", "0.063", "0.109", "0.154"] + ["N/A"] * 5
+    assert t_in.rows[79].cells[:2] == ["W18x65", "1"] and t_in.rows[79].wd == 1.0
+    assert t_in.rows[79].values_in == [0.038, 0.038, 0.06, 0.113, 0.17, None, None, None]
+    assert t_in.rows[-1].cells == [
+        "W14x233",
+        "2.55",
+        "0.018",
+        "0.018",
+        "0.019",
+        "0.048",
+        "0.080",
+        "0.111",
+        "0.143",
+        "0.175",
+    ]
+    assert all(r.canonical and len(r.cells) == 10 for r in t_in.rows)
+    assert t_mm.rows[0].cells == ["406", "1.6", "2.76", "3.92"] + ["N/A"] * 5
+    assert t_mm.rows[-1].cells == [
+        "53",
+        "0.47",
+        "0.47",
+        "0.47",
+        "1.22",
+        "2.02",
+        "2.83",
+        "3.63",
+        "4.44",
+    ]
+    assert all(r.label is None and len(r.cells) == 9 for r in t_mm.rows)
+    assert [r.wd for r in t_mm.rows][:3] == [406.0, 400.0, 395.0]
+    assert [
+        (e.form, e.a, e.b, e.rating, e.wd_range, e.h_range, e.h_units, e.item_no)
+        for e in rec.equations
+    ] == [
+        ("T = a*(Hp/A) + b", 0.0008, 3.5825, "1", (406.0, 298.0), (3.92, 3.83), "mm", "2"),
+        ("T = a*(Hp/A) + b", 0.0142, -0.4131, "1", (298.0, 160.0), (3.83, 1.86), "mm", "2"),
+        ("T = a*(Hp/A) + b", 0.0131, -0.225, "1", (160.0, 53.0), (1.86, 0.47), "mm", "2"),
+        ("T = a*(Hp/A) + b", 0.0283, 0.5201, "2", (298.0, 53.0), (8.94, 2.02), "mm", "2"),
+    ]
+    assert rec.equations[3].as_printed == "T =((0.0283*Hp/A) + 0.5201"
+    assert any("parentheses unbalanced" in n for n in rec.equations[3].notes)
+    assert all(e.h_range_in is None and e.k is None for e in rec.equations)
+
+
+def test_real_y678():
+    if not Y678_PDF.exists():
+        pytest.skip("reference library not present")
+    rec = parse_design_pdf(Y678_PDF)
+    assert rec.design_no == "Y678" and rec.last_updated == "2025-08-22"
+    assert rec.ratings[0].hours == [0.5, 0.75, 1.0, 1.5, 2.0, 2.5, 3.0]
+    assert rec.ratings[0].see == "See Item 3"
+    assert [it.no for it in rec.items] == ["1", "2", "3"] and rec.unparsed == []
+    assert rec.items[2].manufacturers[0].text == THERMO_SORB_MFR
+    cols = ["30 min", "45 min", "60 min", "90 min", "120 min", "150 min", "180 min"]
+    assert [(t.kind, t.units, t.ratio_names, len(t.rows), t.condition) for t in rec.tables] == [
+        ("ratio_rows", "mm", ["Hp/A"], 31, "Minimum Required Thickness (mm) for Rating Period"),
+        ("size_wd", "in", ["A/P"], 130, "Minimum Required Thickness (in) for Rating Period"),
+    ]
+    t_mm, t_in = rec.tables
+    assert t_mm.rating_columns == cols and t_in.rating_columns == cols
+    assert all(t.item_no == "3" and t.notes == [] for t in rec.tables)
+    assert t_mm.rows[0].cells == ["212", "1.29", "3.26", "5.22", "9.15", "N/A", "N/A", "N/A"]
+    assert t_mm.rows[-1].cells == ["65", "0.45", "0.45", "1.16", "2.68", "4.21", "5.73", "7.26"]
+    assert (
+        t_in.rows[0].cells == ["8x8x3/16", "0.17", "0.051", "0.128", "0.206", "0.360"] + ["N/A"] * 3
+    )
+    assert t_in.rows[0].canonical == "HSS8X8X3/16"
+    assert t_in.rows[0].values_in == [0.051, 0.128, 0.206, 0.36, None, None, None]
+    assert "3.5x3.5x5/16" in [r.label for r in t_in.rows]
+    assert t_in.rows[-1].cells == [
+        "12x8x5/8",
+        "0.55",
+        "0.018",
+        "0.018",
+        "0.046",
+        "0.106",
+        "0.166",
+        "0.226",
+        "0.286",
+    ]
+    assert all(r.canonical and len(r.cells) == 9 for r in t_in.rows)
+    assert [
+        (e.form, e.a, e.b, e.rating, e.wd_range, e.h_range, e.h_units, e.item_no)
+        for e in rec.equations
+    ] == [
+        ("T = a*(Hp/A) + b", 0.0077, 3.5962, "1", (212.0, 165.0), (5.22, 4.86), "mm", "3"),
+        ("T = a*(Hp/A) + b", 0.037, -1.245, "1", (165.0, 65.0), (4.86, 1.16), "mm", "3"),
+        ("T = a*(Hp/A) + b", 0.0576, 0.466, "2", (165.0, 65.0), (9.97, 4.21), "mm", "3"),
+    ]
+    assert [e.as_printed for e in rec.equations][:2] == [
+        "T =((0.0077*Hp/A) + 3.5962)",
+        "T =((0.037*Hp/A) - 1.245)",
+    ]
