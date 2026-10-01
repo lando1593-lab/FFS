@@ -402,3 +402,19 @@ def _parse_pages(spec: str | None) -> list[int] | None:
 
 if __name__ == "__main__":
     app()
+
+
+@app.command()
+def reference_coverage(
+    library: Path = typer.Option(
+        Path("../data/reference_library/fetched"), help="fetched library root"
+    ),
+    parsed: Path = typer.Option(Path("../data/reference_library/parsed"), help="parsed root"),
+) -> None:
+    """Report what the reference library holds per manufacturer (from files on disk only)."""
+    from ffs.importers.coverage import build_coverage, render_markdown, write_coverage
+
+    report = build_coverage(library, parsed)
+    typer.echo(render_markdown(report))
+    js, md = write_coverage(report, parsed)
+    typer.echo(f"wrote {js} and {md}")
