@@ -519,3 +519,82 @@ def check_bid(
             f"{r.sheet_no} | {r.member} | {r.role} | {r.design} | {r.rating_hours} | {r.bid_in} | {eng} | {r.status} | {r.verdict}"
         )
     typer.echo(f"summary: {summarize(rows)}")
+
+
+def _project(db_url: str, project_id: str | None):
+    from sqlalchemy import select
+
+    from ffs.db.models import Project, session
+
+    s = session(db_url)
+    prj = s.get(Project, project_id) if project_id else s.scalars(select(Project)).first()
+    if prj is None:
+        raise typer.BadParameter("no project in that database")
+    return s, prj
+
+
+@app.command()
+def assign_designs(
+    db: str = typer.Option(..., help="SQLAlchemy URL of the project database"),
+    design: str = typer.Option(..., help="design number, e.g. P723"),
+    rating: float = typer.Option(..., help="hourly rating"),
+    product: str = typer.Option(None, help="product line, e.g. 'CAFCO 400'"),
+    restraint: str = typer.Option(None, help="restrained / unrestrained"),
+    role: str = typer.Option(None, help="only members of this type (beam / column / brace …)"),
+    application: str = typer.Option("contour", help="contour or half_flange_tip"),
+    condition: str = typer.Option(None, help="assembly condition / column group to require"),
+    parsed: Path = typer.Option(Path("../data/reference_library/parsed"), help="parsed root"),
+    project_id: str = typer.Option(None, help="project id (default: first project)"),
+    actor: str = typer.Option("design-engine", help="who is recorded as the actor"),
+) -> None:
+    """Resolve a thickness for every member under one design and persist the assignments;
+    anything not cleanly resolved becomes a review item."""
+    from ffs.db.assign import assign_designs_for_project, ensure_base_scenario, resolution_meter
+    from ffs.design.library import DesignLibrary
+
+    s, prj = _project(db, project_id)
+    scn = ensure_base_scenario(s, prj)
+    lib = DesignLibrary.load(parsed)
+    counts = assign_designs_for_project(
+        s, prj, scn, lib, design, rating, product, restraint, role, application, condition, actor
+    )
+    typer.echo(f"assigned {sum(counts.values())} members under {design} {rating} h: {counts}")
+    typer.echo(f"meter: {resolution_meter(s, prj, scn)}")
+
+
+@app.command()
+def review_queue(
+    db: str = typer.Option(..., help="SQLAlchemy URL of the project database"),
+    project_id: str = typer.Option(None, help="project id (default: first project)"),
+) -> None:
+    """List open review items: what is known, what is likely, why it is open, the options."""
+    from ffs.db.assign import ensure_base_scenario, open_review_items
+
+    s, prj = _project(db, project_id)
+    scn = ensure_base_scenario(s, prj)
+    items = open_review_items(s, prj, scn)
+    typer.echo(f"{len(items)} open review items")
+    for it in items:
+        typer.echo(f"- [{it.kind}/{it.category}] {it.title}")
+        typer.echo(f"    known: {it.known}")
+        if it.likely:
+            typer.echo(f"    likely: {it.likely}")
+        typer.echo(f"    why: {it.why}")
+        if it.missing:
+            typer.echo(f"    missing: {it.missing}")
+        for o in it.options or []:
+            typer.echo(
+                f"    option: {o.get('thickness_in')} in by {o.get('method')} ({o.get('kind')})"
+            )
+
+
+@app.command()
+def meter(
+    db: str = typer.Option(..., help="SQLAlchemy URL of the project database"),
+    project_id: str = typer.Option(None, help="project id (default: first project)"),
+) -> None:
+    """Resolution meter: members, open review items by category, assignments per table."""
+    from ffs.db.assign import ensure_base_scenario, resolution_meter
+
+    s, prj = _project(db, project_id)
+    typer.echo(json.dumps(resolution_meter(s, prj, ensure_base_scenario(s, prj)), indent=1))

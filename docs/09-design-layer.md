@@ -56,9 +56,18 @@ rest for beams); restraint for beams is passed as an explicit assumption ("unres
 printed as such. Output is a comparison per item (match / differs / match-one-route / review /
 unknown); it never changes the bid.
 
+## Persisting (ADR-0005)
+`ffs assign-designs --db sqlite:///project.sqlite --design P723 --rating 1 --product "CAFCO 400"
+--restraint unrestrained` resolves every member of the project's current scenario and writes a
+`design_assignments` row per member (thickness, source record, design and product revisions,
+section factor) linked to its FACT or CALCULATION assertion. Anything not cleanly resolved
+is stored with `thickness_in = None` and opens a `review_items` row whose options are the
+candidates; `ffs review-queue --db …` lists them and `ffs meter --db …` prints the counts.
+An estimator's choice is persisted through `assign_design(..., choice=…)` as a HUMAN_OVERRIDE
+assertion that cites the chosen candidate and resolves the open item. On the synthetic golden
+against the real library: 40 members, 40 resolved through P723 → S721, 0 review items.
+
 ## Next
-- Persist resolutions as assertions on member assignments (ADR-0005: `design_assignments`,
-  `rating_assignments`) with the HUMAN_OVERRIDE for conflicts.
 - Manufacturer workbook rows (Isolatek intumescent, Hilti estimator) as a fourth candidate class.
 - AISC section factors (W/D, A/P from the shapes database) so the equation route no longer
   depends on a chart row for the ratio.

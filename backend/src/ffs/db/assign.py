@@ -363,3 +363,43 @@ def freeze_stage(db: Session, project: Project, scenario: Scenario, name: str, a
     _audit(db, project.id, actor, "stage.freeze", "stage", stage.id, None, {"name": name})
     db.commit()
     return stage
+
+
+def assign_designs_for_project(
+    db: Session,
+    project: Project,
+    scenario: Scenario,
+    lib,
+    design: str,
+    rating_hours: float,
+    product: str | None,
+    restraint: str | None,
+    role: str | None = None,
+    application: str = "contour",
+    condition: str | None = None,
+    actor: str = "design-engine",
+) -> dict:
+    """Resolve and persist a thickness for every member of the project (optionally one role)
+    under one design/rating/product. Returns counts by resolution status."""
+    from ffs.design.thickness import ThicknessQuery, resolve
+
+    counts: dict[str, int] = {}
+    members = list(
+        db.scalars(select(MemberInstance).where(MemberInstance.project_id == project.id))
+    )
+    for m in members:
+        if role and m.member_type != role:
+            continue
+        q = ThicknessQuery(
+            design,
+            m.canonical_section,
+            rating_hours,
+            restraint,
+            product,
+            application=application,
+            condition=condition,
+        )
+        res = resolve(lib, q)
+        assign_design(db, project, m, scenario, res, actor=actor)
+        counts[res.status] = counts.get(res.status, 0) + 1
+    return counts
