@@ -237,8 +237,6 @@ def test_second_review_regressions(tmp_path, monkeypatch, capsys):
     cat2.close()
     assert any(p.name.endswith(".prev") and p.stat().st_size > 0 for p in out.iterdir())
     # rebuild from a truncated jsonl
-    jl = out / "catalog.jsonl"
-    good = (tmp_path / "out").parent / "out"
     text = (
         out
         / next(

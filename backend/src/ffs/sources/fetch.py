@@ -26,6 +26,12 @@ from urllib.parse import urlparse
 from urllib.robotparser import RobotFileParser
 
 USER_AGENT = "FFS-reference-fetcher/0.1 (+manual, registry-driven; contact: repo owner)"
+# Ordinary request headers every browser sends; some sites answer 403 to requests without them.
+STD_HEADERS = {
+    "User-Agent": USER_AGENT,
+    "Accept": "text/html,application/xhtml+xml,application/pdf,application/octet-stream;q=0.9,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.9",
+}
 REGISTRY_PATH = Path(__file__).with_name("registry.json")
 
 
@@ -60,7 +66,7 @@ def _robots_ok(url: str, opener) -> bool:
     rp = RobotFileParser()
     try:
         req = urllib.request.Request(
-            f"{p.scheme}://{p.netloc}/robots.txt", headers={"User-Agent": USER_AGENT}
+            f"{p.scheme}://{p.netloc}/robots.txt", headers=dict(STD_HEADERS)
         )
         with opener.open(req, timeout=20) as r:
             rp.parse(r.read().decode("utf-8", "replace").splitlines())
@@ -120,7 +126,7 @@ def fetch_all(
             _append(manifest, res)
             continue
         prev = _previous(manifest, src["id"], url)
-        headers = {"User-Agent": USER_AGENT}
+        headers = dict(STD_HEADERS)
         if prev and prev.get("etag"):
             headers["If-None-Match"] = prev["etag"]
         if prev and prev.get("last_modified"):

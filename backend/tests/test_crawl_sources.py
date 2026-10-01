@@ -10,7 +10,9 @@ PAGES = {
     b'<a href="/docs/primers.PDF">Approved primer list</a> <a href="/products">self</a> '
     b'<a href="/deep">deep</a></html>',
     "/deep": b'<html><a href="/deeper">deeper</a></html>',
-    "/deeper": b'<html><a href="/docs/thickness-chart.xlsx">UL design thickness chart</a></html>',
+    "/deeper": b'<html><a href="/docs/thickness-chart.xlsx">UL design thickness chart</a> '
+    b'<a href="/download/pds/55">Product Data Sheet</a> <a href="/about">About</a></html>',
+    "/download/pds/55": b"%PDF-1.4 extensionless data sheet",
     "/robots.txt": b"User-agent: *\nDisallow: /private/\n",
 }
 
@@ -18,6 +20,18 @@ PAGES = {
 class H(BaseHTTPRequestHandler):
     def log_message(self, *a):
         pass
+
+    def do_HEAD(self):
+        body = PAGES.get(self.path)
+        if body is None:
+            self.send_response(404)
+            self.end_headers()
+            return
+        self.send_response(200)
+        self.send_header(
+            "Content-Type", "application/pdf" if body.startswith(b"%PDF") else "text/html"
+        )
+        self.end_headers()
 
     def do_GET(self):
         body = PAGES.get(self.path)

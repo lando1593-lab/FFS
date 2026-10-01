@@ -26,9 +26,22 @@ from pathlib import Path
 from urllib.parse import urljoin, urlparse, urlunparse
 from urllib.robotparser import RobotFileParser
 
-from ffs.sources.fetch import USER_AGENT
+from ffs.sources.fetch import STD_HEADERS, USER_AGENT
 
 DOC_EXT = (".pdf", ".xlsx", ".xlsm", ".xls", ".docx", ".csv", ".zip")
+DOC_TYPES = (
+    "application/pdf",
+    "application/vnd.openxmlformats",
+    "application/vnd.ms-excel",
+    "application/msword",
+    "application/octet-stream",
+    "application/zip",
+)
+_DOC_HINT = re.compile(
+    r"pds|sds|msds|tds|data[-_ ]?sheet|download|document|\.pdf|/media/|/files/|/documents?/|/resources?/|/assets?/|"
+    r"primer|topcoat|ul[-_ ]?design|thickness|listing|bulletin|guide|manual|spec",
+    re.IGNORECASE,
+)
 _KIND_HINTS = [
     (r"sds|msds|safety[-_ ]data", "sds"),
     (r"tds|pds|data[-_ ]?sheet|product[-_ ]data", "product_data"),
@@ -97,6 +110,21 @@ class CrawlReport:
     skipped_hosts: list[str] = field(default_factory=list)
     robots_blocked: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
+    sniffed_documents: int = 0
+
+
+def _sniff_document(url: str, opener) -> str | None:
+    """HEAD an extension-less link; return its content-type if it is a document, else None."""
+    try:
+        req = urllib.request.Request(url, headers=dict(STD_HEADERS), method="HEAD")
+        with opener.open(req, timeout=20) as r:
+            ctype = (r.headers.get("Content-Type") or "").lower()
+            disp = (r.headers.get("Content-Disposition") or "").lower()
+    except Exception:  # noqa: BLE001
+        return None
+    if any(ctype.startswith(t) for t in DOC_TYPES) or re.search(r"\.(pdf|xlsx?|docx?)\b", disp):
+        return ctype or "document"
+    return None
 
 
 def _norm(url: str) -> str:
@@ -120,6 +148,7 @@ def crawl(
     delay_s: float = 1.0,
     opener=None,
     sleep=time.sleep,
+    max_sniff_per_page: int = 25,
 ) -> CrawlReport:
     opener = opener or urllib.request.build_opener()
     allowed = {h.lower() for h in allowed_hosts}
@@ -135,9 +164,7 @@ def crawl(
         if key not in robots:
             rp = RobotFileParser()
             try:
-                req = urllib.request.Request(
-                    key + "/robots.txt", headers={"User-Agent": USER_AGENT}
-                )
+                req = urllib.request.Request(key + "/robots.txt", headers=dict(STD_HEADERS))
                 with opener.open(req, timeout=20) as r:
                     rp.parse(r.read().decode("utf-8", "replace").splitlines())
                 robots[key] = rp
@@ -161,7 +188,7 @@ def crawl(
             rep.robots_blocked.append(url)
             continue
         try:
-            req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+            req = urllib.request.Request(url, headers=dict(STD_HEADERS))
             with opener.open(req, timeout=30) as r:
                 ctype = (r.headers.get("Content-Type") or "").lower()
                 if "html" not in ctype:
@@ -176,13 +203,28 @@ def crawl(
             parser.feed(html)
         except Exception:  # noqa: BLE001
             pass
+        sniffed = 0
         for href, text in parser.links:
             if href.startswith(("mailto:", "tel:", "javascript:", "#")):
                 continue
             target = _norm(urljoin(url, href))
             thost = (urlparse(target).hostname or "").lower()
             path = urlparse(target).path.lower()
-            if path.endswith(DOC_EXT):
+            is_doc = path.endswith(DOC_EXT)
+            if (
+                not is_doc
+                and thost in allowed
+                and target not in docs
+                and target not in seen
+                and sniffed < max_sniff_per_page
+                and _DOC_HINT.search(href + " " + text)
+                and not re.search(r"\.(html?|aspx?|php|jsp)$", path)
+            ):
+                sniffed += 1
+                if allowed_by_robots(target) and _sniff_document(target, opener):
+                    is_doc = True
+                    rep.sniffed_documents += 1
+            if is_doc:
                 if thost in allowed and target not in docs and not allowed_by_robots(target):
                     rep.robots_blocked.append(target)
                 elif thost in allowed and target not in docs:
