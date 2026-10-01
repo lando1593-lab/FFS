@@ -155,3 +155,36 @@ def test_undecodable_filename_survives(tmp_path):
     inv.write_outputs(cat)
     rows = json.loads((tmp_path / "out" / "catalog.jsonl").read_text(encoding="utf-8").splitlines()[0])
     assert rows["filename"].startswith("caf")
+
+
+def test_media_counted_not_opened_and_exclude(tmp_path):
+    root = tmp_path / "lib"
+    (root / "Christmas 2019").mkdir(parents=True)
+    (root / "Work").mkdir()
+    (root / "Christmas 2019" / "IMG_0001.jpg").write_bytes(b"\xff\xd8garbage")
+    (root / "Christmas 2019" / "clip.mov").write_bytes(b"\0" * 100)
+    (root / "Work" / "site photo.jpg").write_bytes(b"\xff\xd8garbage")
+    (root / "Work" / "notes.txt").write_text("cafco 2 hr")
+    cat = inv.Catalog(tmp_path / "out", root, media_mode="count")
+    try:
+        inv.inventory(root, cat, None, 16, 4, 600, False)
+    finally:
+        cat.close()
+    inv.write_outputs(cat)
+    assert [e.filename for e in cat.entries] == ["notes.txt"]
+    assert cat.media["Christmas 2019"]["files"] == 2 and cat.media["Christmas 2019"]["video"] == 1
+    assert cat.media["Work"]["image"] == 1
+    summary = (tmp_path / "out" / "summary.md").read_text(encoding="utf-8")
+    assert "files: 3" in summary and "Christmas" not in summary
+    assert "Christmas 2019" in (tmp_path / "out" / "summary_paths.md").read_text(encoding="utf-8")
+    # exclude skips the folder entirely; list mode records media by name without hashing
+    cat2 = inv.Catalog(tmp_path / "out2", root, media_mode="list", excludes=["christmas*"])
+    try:
+        inv.inventory(root, cat2, None, 16, 4, 600, False)
+    finally:
+        cat2.close()
+    names = sorted(e.filename for e in cat2.entries)
+    assert names == ["notes.txt", "site photo.jpg"]
+    photo = next(e for e in cat2.entries if e.filename == "site photo.jpg")
+    assert photo.sha256 is None and photo.doc_type == "media" and photo.snippet == ""
+    assert len(cat2.excluded_dirs) == 1

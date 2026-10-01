@@ -19,6 +19,9 @@ Safety:
     nothing stops the walk. Ctrl-C writes a partial catalog marked PARTIAL.
   * Symlinks and Windows junctions are never followed.
   * Stores at most a short text snippet per file (default 600 chars) — no full-text copies.
+  * Photos, video and audio are never opened or hashed: by default they are only counted per
+    top-level folder (--media count); --media list records their names and sizes instead.
+    --exclude "Pattern" skips whole folders (e.g. personal folders) by name.
 
 Classification is heuristic keyword scoring with a confidence in [0, 1]. It is a *map* of the
 library for humans to review; it is never an authority on current code or product compliance
@@ -189,7 +192,12 @@ TEXT_EXT = {".txt", ".csv", ".md", ".rtf"}
 PDF_EXT = {".pdf"}
 XLS_EXT = {".xlsx", ".xlsm", ".xls"}
 DOC_EXT = {".docx", ".doc"}
-IMG_EXT = {".jpg", ".jpeg", ".png", ".tif", ".tiff", ".bmp", ".gif", ".heic"}
+IMG_EXT = {".jpg", ".jpeg", ".png", ".tif", ".tiff", ".bmp", ".gif", ".heic", ".heif", ".raw", ".cr2", ".nef",
+           ".dng", ".webp", ".psd"}
+VIDEO_EXT = {".mp4", ".mov", ".avi", ".m4v", ".mkv", ".wmv", ".mts", ".m2ts", ".3gp", ".mpg", ".mpeg"}
+AUDIO_EXT = {".mp3", ".m4a", ".wav", ".aac", ".flac", ".wma"}
+ARCHIVE_EXT = {".zip", ".7z", ".rar", ".tar", ".gz", ".dmg", ".iso"}
+MEDIA_CLASSES = {"image", "video", "audio"}
 CAD_EXT = {".dwg", ".dxf", ".dwf", ".rvt", ".ifc", ".skp"}
 SKIP_NAMES = {".DS_Store", "Thumbs.db", "desktop.ini", ".Spotlight-V100", ".Trashes", ".fseventsd",
               "$RECYCLE.BIN", "System Volume Information", ".TemporaryItems", ".DocumentRevisions-V100"}
@@ -470,12 +478,16 @@ def classify(e: Entry, text: str) -> None:
 class Catalog:
     """Streams rows to catalog.jsonl as they are produced; builds the rest at the end."""
 
-    def __init__(self, out: Path, root: Path):
+    def __init__(self, out: Path, root: Path, media_mode: str = "count", excludes: list[str] | None = None):
         self.out = out
         self.root = root
         self.entries: list[Entry] = []
         self.interrupted = False
         self.dirs_failed = 0
+        self.media_mode = media_mode  # count | list
+        self.excludes = [x.lower() for x in (excludes or [])]
+        self.media: dict[str, dict[str, int]] = {}  # top folder -> {files, bytes, image, video, audio}
+        self.excluded_dirs: list[str] = []
         out.mkdir(parents=True, exist_ok=True)
         # probe every output up front so a locked file fails fast, not after hours
         for name in ("catalog.jsonl", "catalog.csv", "catalog.sqlite", "summary.md", "summary_paths.md", "run.log"):
@@ -487,6 +499,19 @@ class Catalog:
         self._jsonl = (out / "catalog.jsonl").open("w", encoding="utf-8", errors="replace")
         self._log = (out / "run.log").open("w", encoding="utf-8", errors="replace")
         self.log(f"start root={root}")
+
+    def count_media(self, folder: str, fclass: str, size: int) -> None:
+        top = folder.split(os.sep)[0] if folder else "(root)"
+        m = self.media.setdefault(top, {"files": 0, "bytes": 0, "image": 0, "video": 0, "audio": 0})
+        m["files"] += 1
+        m["bytes"] += size
+        m[fclass] += 1
+
+    def excluded(self, name: str) -> bool:
+        import fnmatch
+
+        n = name.lower()
+        return any(fnmatch.fnmatch(n, pat) for pat in self.excludes)
 
     def log(self, msg: str) -> None:
         line = f"{datetime.now().isoformat(timespec='seconds')} {msg}"
@@ -539,6 +564,9 @@ def inventory(root: Path, cat: Catalog, max_files: int | None, hash_limit_mb: in
             for d in dirnames:
                 if d in SKIP_NAMES or d.startswith("."):
                     continue
+                if cat.excluded(d):
+                    cat.excluded_dirs.append(strip(os.path.join(dirpath, d)))
+                    continue
                 if is_reparse_or_link(os.path.join(dirpath, d)):
                     cat.add(_entry_for_error(root, strip(os.path.join(dirpath, d)), "link/junction not followed", "directory"))
                     continue
@@ -582,15 +610,25 @@ def _one_file(root: Path, cat: Catalog, full: str, shown: str, hash_limit_mb: in
     folder = "" if rel.parent == Path(".") else str(rel.parent)
     ext = p.suffix.lower()
     fclass = ("pdf" if ext in PDF_EXT else "excel" if ext in XLS_EXT else "word" if ext in DOC_EXT
-              else "image" if ext in IMG_EXT else "cad" if ext in CAD_EXT else "text" if ext in TEXT_EXT else "other")
+              else "image" if ext in IMG_EXT else "video" if ext in VIDEO_EXT else "audio" if ext in AUDIO_EXT
+              else "archive" if ext in ARCHIVE_EXT else "cad" if ext in CAD_EXT
+              else "text" if ext in TEXT_EXT else "other")
     mt = iso_mtime(st.st_mtime)
+    is_media = fclass in MEDIA_CLASSES
+    if is_media and cat.media_mode == "count":
+        cat.count_media(folder, fclass, st.st_size)
+        return
     e = Entry(
         path=clean(shown), rel_path=clean(str(rel)), folder=clean(folder), filename=clean(p.name), ext=ext,
-        size_bytes=st.st_size, mtime_iso=mt, sha256=None if dry_run else sha256_of(full, hash_limit_mb),
-        file_class=fclass,
+        size_bytes=st.st_size, mtime_iso=mt,
+        sha256=None if (dry_run or is_media) else sha256_of(full, hash_limit_mb),
+        file_class=fclass, doc_type=("media" if is_media else "unclassified"),
     )
     if not mt:
         e.error = f"bad mtime {st.st_mtime}"
+    if is_media:
+        cat.add(e)  # listed by name only; never opened
+        return
     text = ""
     if not dry_run and st.st_size > 0:
         try:
@@ -668,11 +706,19 @@ def write_outputs(cat: Catalog) -> None:
              "## Text extracted", f"- yes: {sum(1 for e in files if e.text_extracted)}",
              f"- no: {sum(1 for e in files if not e.text_extracted)}", "",
              "## Scanned PDFs (no text layer) — OCR candidates", f"- {sum(1 for e in files if e.likely_scanned)}", "",
+             "## Media (photos/video/audio) — counted only, never opened",
+             f"- files: {sum(m['files'] for m in cat.media.values())}  size: {sum(m['bytes'] for m in cat.media.values()) / 1e9:.1f} GB  "
+             f"in {len(cat.media)} top-level folders" if cat.media else "- none counted (media mode: list)", "",
+             "## Excluded folders", f"- {len(cat.excluded_dirs)}", "",
              "## Rows with errors", f"- {sum(1 for e in entries if e.error)} (see summary_paths.md)", "",
              "## Unclassified", f"- {sum(1 for e in files if e.doc_type == 'unclassified')} (see summary_paths.md)", ""]
     (out / "summary.md").write_text("\n".join(lines), encoding="utf-8", errors="replace")
     plines = ["# Inventory paths (KEEP LOCAL — contains folder and file names)", "", f"Root: `{root}`", "",
               "## Top folders", *[f"- {k}: {v}" for k, v in count(lambda e: e.folder.split(os.sep)[0] if e.folder else "(root)")[:60]], "",
+              "## Media per top-level folder (counted only)",
+              *[f"- {k}: {v['files']} files, {v['bytes'] / 1e9:.1f} GB (img {v['image']}, video {v['video']}, audio {v['audio']})"
+                for k, v in sorted(cat.media.items(), key=lambda kv: -kv[1]['files'])], "",
+              "## Excluded folders", *[f"- {d}" for d in cat.excluded_dirs[:200]], "",
               "## Errors (first 300)", *[f"- {e.rel_path}: {e.error}" for e in entries if e.error][:300], "",
               "## Unclassified (first 300)", *[f"- {e.rel_path}" for e in files if e.doc_type == "unclassified"][:300]]
     (out / "summary_paths.md").write_text("\n".join(plines), encoding="utf-8", errors="replace")
@@ -690,6 +736,10 @@ def main() -> int:
     ap.add_argument("--snippet", type=int, default=600, help="max chars of text snippet stored per file")
     ap.add_argument("--dry-run", action="store_true", help="walk and stat only; do not open file contents")
     ap.add_argument("--allow-same-volume", action="store_true", help="(not recommended) permit --out on the root's volume")
+    ap.add_argument("--media", choices=["count", "list"], default="count",
+                    help="photos/video/audio: 'count' per folder (default) or 'list' every file by name (never opened)")
+    ap.add_argument("--exclude", action="append", default=[], metavar="PATTERN",
+                    help="folder name pattern to skip entirely (repeatable, case-insensitive glob), e.g. --exclude 'Photos*'")
     a = ap.parse_args()
     if a.find:
         for c in find_candidate_mounts():
@@ -714,12 +764,12 @@ def main() -> int:
               f"Use --out on your internal drive.", file=sys.stderr)
         return 2
     print(f"inventorying {root} (read-only) → {out}", file=sys.stderr)
-    cat = Catalog(out, root)
+    cat = Catalog(out, root, media_mode=a.media, excludes=a.exclude)
     try:
         inventory(root, cat, a.max_files, a.hash_limit_mb, a.max_pages, a.snippet, a.dry_run)
     finally:
         cat.close()
-    if not cat.entries:
+    if not cat.entries and not cat.media:
         print("No files found. Check the path with --find. On macOS, allow Terminal under System Settings > "
               "Privacy & Security > Files and Folders > Removable Volumes.", file=sys.stderr)
         return 2

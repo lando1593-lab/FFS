@@ -1,7 +1,7 @@
 # One-command LaCie inventory for Windows (PowerShell). READ ONLY on the drive.
 # Usage:  powershell -ExecutionPolicy Bypass -File tools\lacie_inventory\run.ps1            # auto-detect
 #         powershell -ExecutionPolicy Bypass -File tools\lacie_inventory\run.ps1 -Root "E:\"  # explicit
-param([string]$Root = "")
+param([string]$Root = "", [Parameter(ValueFromRemainingArguments=$true)][string[]]$Extra)
 $ErrorActionPreference = "Stop"
 $Here = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Repo = Resolve-Path (Join-Path $Here "..\..")
@@ -30,7 +30,7 @@ if ($Root -match '^[A-Za-z]:$') { $Root = "$Root\" }
 if ($Root.Length -gt 3) { $Root = $Root.TrimEnd('\') }
 Write-Host "Library root: $Root  (read-only)"
 Write-Host "Output:       $Out"
-uv run python (Join-Path $Here "inventory.py") $Root --out $Out
+uv run python (Join-Path $Here "inventory.py") $Root --out $Out @Extra
 Write-Host ""
 Write-Host "Share:      $Out\summary.md   (counts only)"
 Write-Host "Keep local: summary_paths.md, catalog.csv, catalog.jsonl, catalog.sqlite in $Out"

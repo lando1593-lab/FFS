@@ -17,6 +17,13 @@ Both install `uv` if missing, set up the environment, run the inventory, and wri
 `data/lacie_catalog/`. Then send `data/lacie_catalog/summary.md`. Type drive letters as `D:\`
 without quotes; the output folder must be on a different drive than the library (enforced).
 
+## A drive with personal files on it
+Point the tool at the work folder rather than the drive root, e.g. `-Root "D:\Fireproofing"`.
+If you do run the whole drive: photos, video and audio are never opened or hashed; they are
+counted per top-level folder in `summary.md` (no names) and listed by folder in
+`summary_paths.md`. Skip folders entirely with `--exclude "Christmas*" --exclude "Photos*"`
+(pass through `run.ps1` / `run.sh` as extra arguments after the root).
+
 ## Manual path
 
 ```

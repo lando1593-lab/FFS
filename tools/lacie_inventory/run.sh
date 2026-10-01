@@ -17,6 +17,8 @@ cd "$REPO/backend"
 uv sync --extra dev --extra inventory
 
 ROOT="${1:-}"
+if [ $# -gt 0 ]; then shift; fi
+EXTRA=("$@")
 if [ -z "$ROOT" ]; then
   CANDS=()
   while IFS= read -r line; do [ -n "$line" ] && CANDS+=("$line"); done < <(uv run python "$HERE/inventory.py" --find)
@@ -34,7 +36,7 @@ if [ -z "$ROOT" ]; then
 fi
 echo "Library root: $ROOT  (read-only)"
 echo "Output:       $OUT"
-uv run python "$HERE/inventory.py" "$ROOT" --out "$OUT"
+uv run python "$HERE/inventory.py" "$ROOT" --out "$OUT" ${EXTRA[@]+"${EXTRA[@]}"}
 echo
 echo "Share:      $OUT/summary.md   (counts only)"
 echo "Keep local: $OUT/summary_paths.md, catalog.csv, catalog.jsonl, catalog.sqlite"
