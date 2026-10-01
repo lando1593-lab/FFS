@@ -74,6 +74,19 @@ two thickness equations with W/D ranges and two 7-row size tables (contour, and 
 reduced); S801 one rating table; P922 six rating tables across items 3, 7, 7D, 7E plus the
 manufacturer Type lists. Because they are 2019 snapshots, the user will pull current copies.
 
+### Manufacturer thickness workbooks (parsed)
+`ffs import-thickness-workbook` reads both Isolatek workbooks with cell-level provenance:
+- Intumescent estimating program V4.3: 66,793 (member, product, variant, rating) rows across
+  roof beam, restrained/unrestrained floor beam, HSS column, WF column, misc shape and column
+  tables, mapped to designs N634, N635, N661, X649, Y614, Y615, Y616, Y669, Y670 through the
+  workbook's own index sheet. Products: FIRESOLVE SB, SprayFilm WB 3, WB 4, WB 5, with LW/NW
+  (lightweight/normal-weight concrete) variants on floor beams.
+- WB 4 estimating guide: 17,651 rows for designs N614 (NW/LW), N635, N653 (painted top flange /
+  mineral wool), X649, X650/Y614, plus roof and misc tables whose design is not named in the
+  sheet (rows kept, flagged "no design mapping").
+Values are in mils (intumescent DFT). The workbooks state that extrapolated thicknesses are the
+manufacturer's engineering analysis; rows are stored as manufacturer data, authority level 6.
+
 ## Steel shape tables (15 PDFs)
 Wide-flange beams, wide-flange columns, WT columns, single angles, double angles (equal, unequal
 SLBB), miscellaneous channels, HSS and pipes, pipes, rectangular and square tube, solid round

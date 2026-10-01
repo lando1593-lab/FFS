@@ -228,6 +228,31 @@ def import_ul_design(
         typer.echo(f"   → {p}")
 
 
+@app.command("import-thickness-workbook")
+def import_thickness_workbook(
+    xlsx: Path,
+    out: Path = typer.Option(Path("out_thk"), help="output directory"),
+    product: str = typer.Option(None, help="product name when the workbook does not label columns"),
+) -> None:
+    """Import a manufacturer thickness workbook (long or wide layout) into traceable rows."""
+    from collections import Counter
+
+    from ffs.importers.thickness_workbook import import_workbook, write_outputs
+
+    imp = import_workbook(xlsx, product)
+    write_outputs(imp, out)
+    typer.echo(
+        f"{imp.workbook}: {len(imp.rows)} rows; sheets parsed={imp.sheets_parsed}; skipped={imp.sheets_skipped}"
+    )
+    by = Counter((r.product, r.variant, r.design) for r in imp.rows)
+    for (prod, var, des), n in sorted(by.items(), key=lambda kv: -kv[1])[:40]:
+        typer.echo(f"   {n:>6}  product={prod}  variant={var}  design={des}")
+    unmapped = sum(1 for r in imp.rows if r.design is None)
+    if unmapped:
+        typer.secho(f"   {unmapped} rows without a design mapping", fg="yellow")
+    typer.echo(f"outputs in {out}/")
+
+
 @app.command()
 def synth(out_dir: Path = Path("golden/synthetic/gp0_simple_bay")) -> None:
     """Generate the synthetic golden sheet + truth.json."""

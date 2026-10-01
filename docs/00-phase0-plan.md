@@ -22,6 +22,7 @@ every later milestone depends on, the LaCie inventory tool, and a first vertical
 | 11 | Open domain questions for you | Done | `docs/07-open-domain-questions.md` |
 | 12 | EDGE spray-report importer (historical takeoffs → structured data) | Done; verified on the user's sample report (3 sheets, 18 items) | `backend/src/ffs/importers/edge_spray_report.py`, `docs/research/C-edge-spray-report-anatomy.md` |
 | 14 | UL Product iQ design parser (BXUV) | Done; verified on X829, S801, P922 (2019 snapshots) | `backend/src/ffs/importers/ul_design.py` |
+| 15 | Manufacturer thickness-workbook importer | Done; 84,444 rows from the two Isolatek workbooks, cell-level provenance | `backend/src/ffs/importers/thickness_workbook.py`, `docs/research/E-design-and-product-data-acquisition.md` |
 | 13 | One-command local LaCie inventory bootstrap | Done (macOS/Linux `run.sh`, Windows `run.ps1`); tool under adversarial review | `tools/lacie_inventory/` |
 
 ## Environment (this session)
