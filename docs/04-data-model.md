@@ -102,3 +102,9 @@ and `ThicknessTable` are populated from it, never typed by hand.
 Thickness for a member that is not the reference member (e.g. a W12X26 under P922 or N-series
 designs) is **not** in the design; it comes from the BXUV Guide Information substitution rules
 using W/D. That rule text is a separate CODE_PRODUCT_RULE record with its own revision (Milestone 3).
+
+## Interpretation layer (implemented 2026-10-01, ADR-0005)
+Tables `scenarios`, `member_interpretations`, `rating_assignments`, `exposure_assignments`,
+`condition_assignments`, `design_assignments`, `review_items`, `stages` exist in
+`backend/src/ffs/db/models.py`. Rows are write-once; each assignment links the assertion that
+justifies it and the row it supersedes. See the ADR for the write rules.

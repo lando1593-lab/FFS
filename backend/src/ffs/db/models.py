@@ -162,6 +162,131 @@ class AuditEvent(Base):
     at: Mapped[datetime] = mapped_column(default=_now)
 
 
+# --- ADR-0005: scenario-scoped interpretation layer ------------------------------------------
+# member_instances stays the write-once physical layer. Everything an estimator can disagree
+# about is an assignment row keyed by (member, scenario), each carrying the assertion that
+# justifies it and superseding (never overwriting) the previous row.
+
+
+class Scenario(Base):
+    __tablename__ = "scenarios"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=lambda: new_id("scn"))
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id"))
+    name: Mapped[str] = mapped_column(String(120))
+    kind: Mapped[str] = mapped_column(String(20))  # base_bid / alternate / ve / post_bid
+    is_current: Mapped[bool] = mapped_column(default=False)
+    parent_scenario_id: Mapped[str | None] = mapped_column(ForeignKey("scenarios.id"))
+    notes: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(default=_now)
+
+
+class _Assignment:
+    """Columns every assignment table shares (declared on each subclass by SQLAlchemy)."""
+
+    member_id: Mapped[str] = mapped_column(ForeignKey("member_instances.id"))
+    scenario_id: Mapped[str] = mapped_column(ForeignKey("scenarios.id"))
+    assertion_id: Mapped[str | None] = mapped_column(ForeignKey("assertions.id"))
+    actor: Mapped[str] = mapped_column(String(100))
+    created_at: Mapped[datetime] = mapped_column(default=_now)
+
+
+class MemberInterpretation(_Assignment, Base):
+    __tablename__ = "member_interpretations"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=lambda: new_id("int"))
+    role: Mapped[str | None] = mapped_column(String(15))  # beam / girder / column / brace / joist
+    status: Mapped[str | None] = mapped_column(String(10))  # new / existing / demo
+    scope_class: Mapped[str] = mapped_column(
+        String(12), default="unknown"
+    )  # in/out/likely_in/likely_out/unknown
+    scope_reason: Mapped[str | None] = mapped_column(Text)
+    exclusion_category: Mapped[str | None] = mapped_column(String(40))
+    supersedes_id: Mapped[str | None] = mapped_column(ForeignKey("member_interpretations.id"))
+
+
+class RatingAssignment(_Assignment, Base):
+    __tablename__ = "rating_assignments"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=lambda: new_id("rtg"))
+    rating_hours: Mapped[float | None] = mapped_column(Float)
+    element_category: Mapped[str | None] = mapped_column(String(40))
+    rule_ref: Mapped[str | None] = mapped_column(String(80))  # "IBC 2021 T601" / spec section
+    rule_edition: Mapped[str | None] = mapped_column(String(40))
+    supersedes_id: Mapped[str | None] = mapped_column(ForeignKey("rating_assignments.id"))
+
+
+class ExposureAssignment(_Assignment, Base):
+    __tablename__ = "exposure_assignments"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=lambda: new_id("exp"))
+    exposure: Mapped[str] = mapped_column(String(20), default="unknown")
+    evidence_json: Mapped[list | None] = mapped_column(JSON)
+    supersedes_id: Mapped[str | None] = mapped_column(ForeignKey("exposure_assignments.id"))
+
+
+class ConditionAssignment(_Assignment, Base):
+    __tablename__ = "condition_assignments"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=lambda: new_id("cnd"))
+    condition_id: Mapped[str | None] = mapped_column(String(40))  # FP-01 …
+    protection_type: Mapped[str] = mapped_column(
+        String(15), default="unknown"
+    )  # sfrm/intumescent/none/unknown
+    sides: Mapped[int | None] = mapped_column(Integer)
+    supersedes_id: Mapped[str | None] = mapped_column(ForeignKey("condition_assignments.id"))
+
+
+class DesignAssignment(_Assignment, Base):
+    __tablename__ = "design_assignments"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=lambda: new_id("dsg"))
+    design: Mapped[str | None] = mapped_column(String(20))
+    design_revision: Mapped[str | None] = mapped_column(String(40))
+    product: Mapped[str | None] = mapped_column(String(120))
+    product_revision: Mapped[str | None] = mapped_column(String(40))
+    rating_hours: Mapped[float | None] = mapped_column(Float)
+    section_factor_method: Mapped[str | None] = mapped_column(String(40))
+    section_factor_value: Mapped[float | None] = mapped_column(Float)
+    thickness_in: Mapped[float | None] = mapped_column(Float)  # None = UNKNOWN — REVIEW REQUIRED
+    thickness_source: Mapped[dict | None] = mapped_column(JSON)  # the candidate's source record
+    resolution_status: Mapped[str] = mapped_column(
+        String(12)
+    )  # resolved/conflict/review/unknown/override
+    supersedes_id: Mapped[str | None] = mapped_column(ForeignKey("design_assignments.id"))
+
+
+class ReviewItem(Base):
+    __tablename__ = "review_items"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=lambda: new_id("rvw"))
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id"))
+    scenario_id: Mapped[str | None] = mapped_column(ForeignKey("scenarios.id"))
+    kind: Mapped[str] = mapped_column(
+        String(20)
+    )  # unknown/conflict/missing_document/assumption/rfi_candidate
+    category: Mapped[str] = mapped_column(
+        String(20)
+    )  # physical/rating/system/design/exposure/document
+    subject_type: Mapped[str] = mapped_column(String(30))
+    subject_id: Mapped[str | None] = mapped_column(String(32))
+    title: Mapped[str] = mapped_column(String(300))
+    known: Mapped[list | None] = mapped_column(JSON)
+    likely: Mapped[list | None] = mapped_column(JSON)
+    why: Mapped[str | None] = mapped_column(Text)
+    missing: Mapped[list | None] = mapped_column(JSON)
+    options: Mapped[list | None] = mapped_column(JSON)
+    status: Mapped[str] = mapped_column(String(12), default="open")  # open/resolved/dismissed
+    resolution_assertion_id: Mapped[str | None] = mapped_column(ForeignKey("assertions.id"))
+    actor: Mapped[str] = mapped_column(String(100))
+    created_at: Mapped[datetime] = mapped_column(default=_now)
+    resolved_at: Mapped[datetime | None] = mapped_column()
+
+
+class Stage(Base):
+    __tablename__ = "stages"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=lambda: new_id("stg"))
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id"))
+    scenario_id: Mapped[str] = mapped_column(ForeignKey("scenarios.id"))
+    name: Mapped[str] = mapped_column(String(20))  # estimated/contracted/approved/field/as_built
+    snapshot: Mapped[dict] = mapped_column(JSON)
+    actor: Mapped[str] = mapped_column(String(100))
+    frozen_at: Mapped[datetime] = mapped_column(default=_now)
+
+
 def make_engine(url: str = "sqlite:///ffs.sqlite"):
     eng = create_engine(url, future=True)
     Base.metadata.create_all(eng)
