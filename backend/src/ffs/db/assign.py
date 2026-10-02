@@ -403,3 +403,52 @@ def assign_designs_for_project(
         assign_design(db, project, m, scenario, res, actor=actor)
         counts[res.status] = counts.get(res.status, 0) + 1
     return counts
+
+
+def quantities_for_project(
+    db: Session,
+    project: Project,
+    scenario: Scenario,
+    aisc=None,
+    waste_pct: float | None = None,
+    waste_source: str | None = None,
+    yield_bdft_per_bag: float | None = None,
+    yield_source: str | None = None,
+    workbook_sf: dict | None = None,
+):
+    """Member quantities from the current design and condition assignments of a scenario."""
+    from ffs.design.quantities import aggregate, member_quantity
+
+    rows = []
+    members = list(
+        db.scalars(select(MemberInstance).where(MemberInstance.project_id == project.id))
+    )
+    for m in members:
+        d = current(db, DesignAssignment, m.id, scenario.id)
+        c = current(db, ConditionAssignment, m.id, scenario.id)
+        sides, sides_source = (
+            (c.sides, "condition_assignment") if c and c.sides else (None, "assumed")
+        )
+        src = d.thickness_source if d else None
+        inputs = None
+        if d and d.section_factor_method and d.section_factor_value is not None:
+            inputs = {"ratio": d.section_factor_value, "ratio_kind": d.section_factor_method}
+        rows.append(
+            member_quantity(
+                m.id,
+                m.canonical_section,
+                m.level,
+                m.member_type,
+                m.length_in,
+                d.thickness_in if d else None,
+                d.design if d else None,
+                d.product if d else None,
+                src,
+                inputs,
+                sides,
+                sides_source,
+                aisc,
+                workbook_sf,
+            )
+        )
+    return aggregate(rows, scenario.id, waste_pct, waste_source, yield_bdft_per_bag, yield_source)

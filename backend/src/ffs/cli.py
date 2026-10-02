@@ -665,3 +665,52 @@ def check_drawing_report(
                 typer.echo(f"    {cand.method} {cand.thickness_in} {src}")
             for reason in c.resolution.reasons[:3]:
                 typer.secho(f"    - {reason}", fg="yellow")
+
+
+@app.command()
+def quantities(
+    db: str = typer.Option(..., help="SQLAlchemy URL of the project database"),
+    project_id: str = typer.Option(None, help="project id (default: first project)"),
+    aisc: Path = typer.Option(None, help="AISC shapes database .xlsx/.csv (else FFS_AISC_SHAPES)"),
+    waste: float = typer.Option(None, help="waste factor in percent, e.g. 10"),
+    waste_source: str = typer.Option(None, help="where the waste factor comes from"),
+    yield_bdft: float = typer.Option(None, help="board feet per bag from the product data sheet"),
+    yield_source: str = typer.Option(None, help="document and page the yield is read from"),
+    out: Path = typer.Option(None, help="write the quantity set as JSON here"),
+) -> None:
+    """Surface area, theoretical and adjusted board feet, bags; every member's basis cited."""
+    from dataclasses import asdict
+
+    from ffs.db.assign import ensure_base_scenario, quantities_for_project
+    from ffs.steel.aisc import ShapeDatabase
+
+    if waste is not None and not waste_source:
+        raise typer.BadParameter(
+            "--waste needs --waste-source (an explicit assumption, never a default)"
+        )
+    if yield_bdft is not None and not yield_source:
+        raise typer.BadParameter(
+            "--yield-bdft needs --yield-source (the product document it is read from)"
+        )
+    s, prj = _project(db, project_id)
+    scn = ensure_base_scenario(s, prj)
+    shapes = ShapeDatabase.load(aisc) if aisc else ShapeDatabase.load()
+    qs = quantities_for_project(s, prj, scn, shapes, waste, waste_source, yield_bdft, yield_source)
+    typer.echo(f"totals: {qs.totals}")
+    typer.echo("by condition (design | product | thickness | sides):")
+    for k, v in qs.by_condition.items():
+        typer.echo(f"  {k}: {v}")
+    typer.echo("by level:")
+    for k, v in qs.by_level.items():
+        typer.echo(f"  {k}: {v}")
+    bases = {}
+    for r in qs.rows:
+        key = r.basis.method if r.basis else r.status
+        bases[key] = bases.get(key, 0) + 1
+    typer.echo(f"surface basis by method: {bases}")
+    for r in qs.rows:
+        if r.status != "ok":
+            typer.secho(f"  ! {r.canonical} {r.level}: {r.status}", fg="yellow")
+    if out:
+        out.write_text(json.dumps(asdict(qs), indent=1, default=str), encoding="utf-8")
+        typer.echo(f"wrote {out}")

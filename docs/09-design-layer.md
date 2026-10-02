@@ -68,7 +68,24 @@ An estimator's choice is persisted through `assign_design(..., choice=…)` as a
 assertion that cites the chosen candidate and resolves the open item. On the synthetic golden
 against the real library: 40 members, 40 resolved through P723 → S721, 0 review items.
 
+## Quantities (Milestone 4, first implementation)
+`ffs quantities --db … [--waste 10 --waste-source "…"] [--yield-bdft 40 --yield-source "…"] [--aisc file]`
+computes, per member of the current scenario: linear feet (from the physical layer), square feet
+(linear feet × surface area per foot), theoretical board feet (square feet × thickness in inches),
+adjusted board feet (theoretical × (1 + waste)) and bags (adjusted ÷ yield), with totals by
+condition (design | product | thickness | sides) and by level. Surface area per foot comes from,
+in order: AISC dimensions through the stated perimeter formula (contour or box, 3 or 4 sides);
+the heated perimeter implied by the printed W/D of the chart row that gave the thickness
+(D = W ÷ (W/D), which is exactly how Isolatek's estimating workbooks compute their square feet
+per foot: W12x26 beam 3.54, column 4.08); nominal geometry for tubes, pipes and angles; a
+manufacturer workbook's printed square feet per foot. A member with none of these, a missing
+length or an unresolved thickness is reported, never estimated. Waste and yield are refused
+without a source; without them the adjusted and bag numbers are simply absent. Sides come from
+the condition assignment or are assumed from the role (3 for beams, 4 for columns) and flagged.
+
 ## Next
 - Manufacturer workbook rows (Isolatek intumescent, Hilti estimator) as a fourth candidate class.
+- Yield from the product data sheets as parsed facts (today it is a cited CLI input).
+- Area items (deck, patching) and joist surface area; a quantity_sets table so stages freeze them.
 - AISC section factors (W/D, A/P from the shapes database) so the equation route no longer
   depends on a chart row for the ratio.
